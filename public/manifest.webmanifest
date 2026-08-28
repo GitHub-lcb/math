@@ -1,0 +1,18 @@
+{
+  "name": "象限先生的数学实验室",
+  "short_name": "象限先生",
+  "description": "初高中数学可视化交互实验：实时图像仿真、可调参数、公式推导与实验指南。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12151b",
+  "theme_color": "#12151b",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
