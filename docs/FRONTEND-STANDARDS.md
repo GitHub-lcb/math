@@ -59,6 +59,15 @@
 
 新增实验组件必须验证 375px 与 768px 宽度可用。
 
+### 移动端硬性规则（≤900px 断点内强制）
+
+1. **触控目标**：图标按钮 ≥ 40×40px，滑块拇指 ≥ 22px，间距 ≥ 8px（触屏无 hover，反馈靠背景色与滑块位移）。
+2. **防 iOS 聚焦缩放**：input/select 字号 ≥ 16px；viewport meta 用 width=device-width + maximum-scale=5（不禁缩放，保可达性）。
+3. **视口高度**：使用 100dvh（fallback 100vh）避免移动端地址栏伸缩跳动；顶部/底部用 env(safe-area-inset-top/bottom) 适配刘海与横条，viewport-fit=cover。
+4. **画布优先**：实验区 grid 行 = 1fr auto，画布 min-height ≥ 340px，参数面板收窄为 42vh 内滚动，保证「调参→看曲线」闭环。
+5. **触控手势**：画布 touch-action:none；点击设切点与拖拽平移用 ≥3px 位移区分；缩放用工具栏按钮（双指捏合不强制）。
+6. 手机端截图验证入库：shot-m-iphone.png / shot-m-tablet.png（375×812 / 768×1024）。
+
 ## 7. 文案与公式纪律
 
 1. UI 词汇统一：预设函数名、实验名、易错点中的术语必须与 catalog.ts / derivatives.ts 一致（如「割点」不写作「端点」）。

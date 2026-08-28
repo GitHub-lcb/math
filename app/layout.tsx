@@ -25,6 +25,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#12151b",
+  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 const THEME_BOOT = `(function(){try{var k="math-theme";var t=localStorage.getItem(k)||"dark";document.documentElement.dataset.theme=t;var c=getComputedStyle(document.documentElement).getPropertyValue("--paper").trim();if(c){var m=document.querySelector("meta[name=\\"theme-color\\"]");if(m)m.setAttribute("content",c);}}catch(e){}})();`;
