@@ -27,7 +27,7 @@ export const viewport: Viewport = {
   themeColor: "#12151b",
 };
 
-const THEME_BOOT = `(function(){try{var k="math-theme";var t=localStorage.getItem(k)||"dark";document.documentElement.dataset.theme=t;var c=getComputedStyle(document.documentElement).getPropertyValue("--paper").trim();if(c){var m=document.querySelector("meta[name=\"theme-color\"]");if(m)m.setAttribute("content",c);}}catch(e){}})();`;
+const THEME_BOOT = `(function(){try{var k="math-theme";var t=localStorage.getItem(k)||"dark";document.documentElement.dataset.theme=t;var c=getComputedStyle(document.documentElement).getPropertyValue("--paper").trim();if(c){var m=document.querySelector("meta[name=\\"theme-color\\"]");if(m)m.setAttribute("content",c);}}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
