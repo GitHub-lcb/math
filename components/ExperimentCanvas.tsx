@@ -26,6 +26,7 @@ export interface CanvasProps {
   onSetTangentX: (x: number) => void;
   onSetSecantX: (x1: number, x2: number) => void;
   theme: "dark" | "light";
+  demoMode?: "params" | "tangent" | null;
 }
 
 const INIT_VP: Viewport = { xMin: -8, xMax: 8, yMin: -5.5, yMax: 5.5 };
@@ -34,7 +35,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
   const {
     fn, fnDerivative, error, stage, showDerivative, showTangent, showArea,
     tangentX, secantX1, secantX2, areaM, areaN, slopeAtPoint, secantSlope, resetToken,
-    onSetTangentX, onSetSecantX, theme,
+    onSetTangentX, onSetSecantX, theme, demoMode,
   } = props;
   const senior = stage === "senior";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,12 @@ export default function ExperimentCanvas(props: CanvasProps) {
   const dragState = useRef<{ startX: number; startY: number; vp: Viewport; moved: boolean } | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const rafRef = useRef<number | null>(null);
+  // 入场生长 / 面积刷入 / 演示轨迹（仅画布内部动画，不触发 React 重渲染）
+  const growthRef = useRef(1);
+  const areaProgRef = useRef(1);
+  const trailRef = useRef<[number, number][]>([]); // 切点演示轨迹
+  const demoTangentRef = useRef(0); // 当前演示切点 x（绘制用）
+  const lastDemoSyncRef = useRef(0);
 
   // 主题取色（CSS 变量 → 调色板）
   const palette = useMemo(() => {
@@ -82,14 +89,36 @@ export default function ExperimentCanvas(props: CanvasProps) {
     if (!ctx) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     const d: plt.DrawCtx = { ctx, w: size.w, h: size.h, dpr, vp: vpRef.current, palette };
+    const growth = growthRef.current;
+    const xSpan = vpRef.current.xMax - vpRef.current.xMin;
+    const xRange: [number, number] =
+      growth >= 1 ? [vpRef.current.xMin, vpRef.current.xMax] : [vpRef.current.xMin, vpRef.current.xMin + xSpan * growth];
     plt.clear(d);
     plt.drawGrid(d);
     if (fn) {
       if (senior && showArea) {
-        const v = plt.drawArea(d, fn, Math.min(areaM, areaN), Math.max(areaM, areaN), palette.area);
+        const v = plt.drawArea(d, fn, Math.min(areaM, areaN), Math.max(areaM, areaN), palette.area, areaProgRef.current);
         areaValueRef.current = Number.isFinite(v) ? v : null;
       }
-      plt.drawCurve(d, fn, palette.accent, 2.6);
+      // 切点演示轨迹（淡色尾迹）
+      if (demoMode === "tangent" && trailRef.current.length > 1) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = palette.tangent;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        for (let i = 0; i < trailRef.current.length; i++) {
+          const [tx, ty] = trailRef.current[i];
+          const [sx, sy] = plt.toScreen(d, tx, ty);
+          if (i === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+      plt.drawCurve(d, fn, palette.accent, 2.6, xRange);
       if (senior && showDerivative && fnDerivative) {
         plt.drawCurve(d, fnDerivative, palette.accent2, 1.8);
         // 标注导数曲线
@@ -101,27 +130,35 @@ export default function ExperimentCanvas(props: CanvasProps) {
         ctx.fillText("f′(x)", lx, ly);
         ctx.restore();
       }
-      if (showTangent) {
-        if (senior) {
-          const y0 = fn(tangentX);
-          const slope = slopeAtPoint(tangentX);
+      if (showTangent && senior) {
+        // 演示模式：切线跟随动画切点
+        const demoX = demoMode === "tangent" ? demoTangentRef.current : NaN;
+        const x0 = Number.isNaN(demoX) || demoMode !== "tangent" ? tangentX : demoX;
+        {
+          const y0 = fn(x0);
+          const slope = slopeAtPoint(x0);
           if (Number.isFinite(y0)) {
             if (Number.isFinite(slope) && Math.abs(slope) < 1e5) {
-              plt.drawLineThrough(d, tangentX, y0, slope, palette.tangent, 2, "");
-              plt.drawMarker(d, tangentX, y0, "P", palette.tangent);
+              plt.drawLineThrough(d, x0, y0, slope, palette.tangent, 2, "");
+              plt.drawMarker(d, x0, y0, "P", palette.tangent);
             } else {
-              plt.drawMarker(d, tangentX, y0, "斜率接近垂直", palette.tangent);
+              plt.drawMarker(d, x0, y0, "斜率接近垂直", palette.tangent);
             }
           }
-        } else {
-          const y1 = fn(secantX1);
-          const y2 = fn(secantX2);
-          if (Number.isFinite(y1) && Number.isFinite(y2) && Math.abs(secantX2 - secantX1) > 1e-6) {
-            const s = secantSlope(secantX1, secantX2);
-            plt.drawLineThrough(d, secantX1, y1, s, palette.tangent, 2, "");
-            plt.drawMarker(d, secantX1, y1, "B" + fmt(secantX1, 1), palette.tangent, 4.5);
-            plt.drawMarker(d, secantX2, y2, "A" + fmt(secantX2, 1), palette.tangent, 4.5);
+          // 记录演示轨迹
+          if (demoMode === "tangent" && Number.isFinite(y0)) {
+            trailRef.current.push([x0, y0]);
+            if (trailRef.current.length > 500) trailRef.current.shift();
           }
+        }
+      } else if (showTangent) {
+        const y1 = fn(secantX1);
+        const y2 = fn(secantX2);
+        if (Number.isFinite(y1) && Number.isFinite(y2) && Math.abs(secantX2 - secantX1) > 1e-6) {
+          const s = secantSlope(secantX1, secantX2);
+          plt.drawLineThrough(d, secantX1, y1, s, palette.tangent, 2, "");
+          plt.drawMarker(d, secantX1, y1, "B" + fmt(secantX1, 1), palette.tangent, 4.5);
+          plt.drawMarker(d, secantX2, y2, "A" + fmt(secantX2, 1), palette.tangent, 4.5);
         }
       }
       if (hover) {
@@ -157,6 +194,89 @@ export default function ExperimentCanvas(props: CanvasProps) {
     cv.height = Math.round(size.h * dpr);
     draw();
   }, [size, draw]);
+
+  // 入场生长动画：曲线从左侧"生长"至全宽（mount 或 resetToken 后一次，1.25s）
+  useEffect(() => {
+    if (size.w === 0) return;
+    const t0 = performance.now();
+    const DUR = 1250;
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    growthRef.current = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / DUR);
+      growthRef.current = 0.35 + 0.65 * easeOut(p); // 起点 35% 成熟度，避免空屏太久
+      drawRef.current();
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+      else growthRef.current = 1;
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      growthRef.current = 1;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size.w, resetToken]);
+
+  // 面积"刷入"动画：开关开启或区间变化时，从 m 向 n 填充（700ms）
+  useEffect(() => {
+    if (!showArea) {
+      areaProgRef.current = 1;
+      return;
+    }
+    const t0 = performance.now();
+    const DUR = 700;
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    areaProgRef.current = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / DUR);
+      areaProgRef.current = easeOut(p);
+      drawRef.current();
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+      else areaProgRef.current = 1;
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      areaProgRef.current = 1;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArea, areaM, areaN]);
+
+  // drawRef 保持最新 draw（动画循环用）
+  const drawRef = useRef(draw);
+  useEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
+
+  // 切线演示：demoMode === "tangent" 时推进动画切点（每帧 30fps 节流同步）
+  useEffect(() => {
+    if (demoMode !== "tangent") {
+      trailRef.current = [];
+      return;
+    }
+    const t0 = performance.now();
+    const DUR = 4200;
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    let lastSync = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / DUR);
+      const x = -6.5 + 13 * ease(p);
+      demoTangentRef.current = x;
+      if (now - lastSync > 160) {
+        lastSync = now;
+        onSetTangentX(+x.toFixed(3));
+      }
+      drawRef.current();
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      trailRef.current = [];
+      demoTangentRef.current = 0;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoMode]);
 
   // 交互：拖拽平移（≥3px 判定） / 点击设切点 / 滚轮缩放
   const onPointerDown = (e: React.PointerEvent) => {

@@ -128,8 +128,8 @@ export function drawGrid(d: DrawCtx): void {
   ctx.restore();
 }
 
-// 绘制函数曲线：逐像素采样，NaN/±Inf 处断开
-export function drawCurve(d: DrawCtx, fn: (x: number) => number, color: string, width = 2.4): void {
+// 绘制函数曲线：逐像素采样，NaN/±Inf 处断开；可选 xRange 截断（入场生长动画）
+export function drawCurve(d: DrawCtx, fn: (x: number) => number, color: string, width = 2.4, xRange?: [number, number]): void {
   const { ctx, w, vp } = d;
   ctx.save();
   PEN(d, color, width);
@@ -139,6 +139,10 @@ export function drawCurve(d: DrawCtx, fn: (x: number) => number, color: string, 
   const pxStep = Math.max(1, Math.round(w / 1000));
   for (let px = 0; px <= w; px += pxStep) {
     const [wx] = toWorld(d, px, 0);
+    if (xRange && (wx < xRange[0] || wx > xRange[1])) {
+      drawing = false;
+      continue;
+    }
     const y = fn(wx);
     if (Number.isNaN(y) || !isFinite(y)) {
       drawing = false;
@@ -198,11 +202,11 @@ export function drawLineThrough(d: DrawCtx, x0: number, y0: number, slope: numbe
 }
 
 // 面积：中点黎曼和（有向面积），每子区间校验有限性
-export function drawArea(d: DrawCtx, fn: (x: number) => number, a: number, b: number, color: string): number {
+export function drawArea(d: DrawCtx, fn: (x: number) => number, a: number, b: number, color: string, progress = 1): number {
   const { ctx, w, h, vp } = d;
   if (!isFinite(a) || !isFinite(b) || a >= b) return NaN;
   const lo = Math.max(vp.xMin, a);
-  const hi = Math.min(vp.xMax, b);
+  const hi = Math.min(vp.xMax, progress >= 1 ? b : a + (b - a) * progress);
   if (lo >= hi) return NaN;
   const total = Math.abs(b - a);
   const bars = Math.max(20, Math.min(120, Math.floor(w / 8)));

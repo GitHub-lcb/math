@@ -7,7 +7,8 @@ import ParamPanel from "@/components/ParamPanel";
 import ExperimentCanvas from "@/components/ExperimentCanvas";
 import MathTabs from "@/components/MathTabs";
 import AnnotationBoard from "@/components/AnnotationBoard";
-import { FLAGSHIP_ID, type Stage } from "@/lib/catalog";
+import GuideToast from "@/components/GuideToast";
+import { CATALOG, FLAGSHIP_ID, type Stage } from "@/lib/catalog";
 import { getPreset, getPresetOrFirst, PRESETS, presetsForStage, analyticDerivative, numericDerivative, slopeAt, secantSlope as secantSlopeFn } from "@/lib/derivatives";
 import { parseAndMakeEvaluator } from "@/lib/parser";
 import { SITE_ICP, SITE_NAME, SITE_THEME_KEY, DEFAULT_THEME } from "@/lib/siteConfig";
@@ -42,6 +43,8 @@ export default function Home() {
   const [areaM, setAreaM] = useState(0);
   const [areaN, setAreaN] = useState(1);
   const [resetToken, setResetToken] = useState(0);
+  const [demoMode, setDemoMode] = useState<"params" | "tangent" | null>(null);
+  const demoRafRef = useRef<number | null>(null);
   const lastGoodFnRef = useRef<((x: number) => number) | null>(null);
 
   const preset = useMemo(() => getPresetOrFirst(presetId), [presetId]);
@@ -116,6 +119,12 @@ export default function Home() {
   }, [theme]);
 
   // ---- 预设/学段操作 ----
+  const stopDemo = useCallback(() => {
+    if (demoRafRef.current) cancelAnimationFrame(demoRafRef.current);
+    demoRafRef.current = null;
+    setDemoMode(null);
+  }, []);
+
   const applyPreset = useCallback((id: string) => {
     const p = getPreset(id) ?? getPresetOrFirst(id);
     setPresetId(p.id);
@@ -152,6 +161,109 @@ export default function Home() {
 
   const presets = useMemo(() => presetsForStage(stage), [stage]);
 
+  // 当前模块（标志实验所在模块）→ 色点展示
+  const currentModule = useMemo(() => {
+    return CATALOG[stage].find((m) => m.experiments.some((e) => e.id === FLAGSHIP_ID)) ?? null;
+  }, [stage]);
+
+  // ---- 演示启动 ----
+  const startDemo = useCallback((mode: "params" | "tangent") => {
+    if (mode === "tangent" && !showTangent) setShowTangent(true);
+    setDemoMode(mode);
+  }, [showTangent]);
+
+  // ---- 重置实验：恢复预设默认参数 + 默认开关 + 视图复位 ----
+  const resetExperiment = useCallback(() => {
+    const p = getPresetOrFirst(presetId);
+    setExprText(p.expr);
+    setParams(presetDefaults(presetId));
+    setShowDerivative(false);
+    setShowTangent(true);
+    setShowArea(false);
+    setTangentX(1);
+    setSecantX1(0);
+    setSecantX2(2);
+    setAreaM(0);
+    setAreaN(1);
+    setResetToken((x) => x + 1);
+    stopDemo();
+  }, [presetId, stopDemo]);
+
+  // ---- 快捷键：1-7 预设 / R 重置 / D 参数演示 / T 切点巡航 ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= presets.length) {
+        const p = presets[n - 1];
+        if (p.id !== preset.id) applyPreset(p.id);
+        return;
+      }
+      if (e.key === "r" || e.key === "R") { resetExperiment(); return; }
+      if (e.key === "d" || e.key === "D") { if (demoMode) stopDemo(); else startDemo("params"); return; }
+      if (e.key === "t" || e.key === "T") { if (demoMode) stopDemo(); else startDemo("tangent"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [presets, preset.id, applyPreset, resetExperiment, startDemo, demoMode]);
+
+  // ---- 演示循环：'params' 参数演示 / 'tangent' 切线巡航 ----
+
+  useEffect(() => {
+    if (!demoMode) return;
+    const t0 = performance.now();
+    const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    let last = t0;
+    const STEP = 40; // 25fps
+    let finished = false;
+
+    const step = (now: number) => {
+      if (now - last < STEP) {
+        demoRafRef.current = requestAnimationFrame(step);
+        return;
+      }
+      last = now;
+      if (demoMode === "params") {
+        // 参数演示：首个参数 起→峰→回（3.2s）
+        const DUR = 3200;
+        const p = Math.min(1, (now - t0) / DUR);
+        const pd = preset.params[0];
+        if (pd) {
+          const lo = pd.def, hi = Math.max(pd.max * 0.75, Math.abs(lo) * 1.5 || 2);
+          const v = p < 0.5 ? lo + (hi - lo) * easeInOut(p * 2) : hi - (hi - lo) * easeInOut((p - 0.5) * 2);
+          setParams((s) => ({ ...s, [pd.name]: +v.toFixed(2) }));
+        }
+        if (p >= 1) finished = true;
+      } else {
+        // 切线巡航：切点沿曲线慢扫（4.2s，画布侧同时推进）
+        const DUR = 4200;
+        const p = Math.min(1, (now - t0) / DUR);
+        setTangentX(+(-6.5 + 13 * easeInOut(p)).toFixed(2));
+        if (p >= 1) finished = true;
+      }
+      if (finished) {
+        if (demoMode === "params" && preset.params[0]) {
+          setParams((s) => ({ ...s, [preset.params[0].name]: preset.params[0].def }));
+        }
+        stopDemo();
+        return;
+      }
+      demoRafRef.current = requestAnimationFrame(step);
+    };
+    demoRafRef.current = requestAnimationFrame(step);
+
+    // 演示期间：预设切换 / 表达式编辑 / 学段切换 / 手动滑块 均打断
+    const interrupt = () => stopDemo();
+    window.addEventListener("pointerdown", interrupt, { capture: true, once: true });
+    return () => {
+      if (demoRafRef.current) cancelAnimationFrame(demoRafRef.current);
+      window.removeEventListener("pointerdown", interrupt, { capture: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoMode, preset, stopDemo]);
+
   return (
     <>
       <TopBar
@@ -174,12 +286,18 @@ export default function Home() {
         </div>
         <main className="mainColumn">
           <div className="workspaceHeader">
+            <span
+              className="modDot"
+              style={currentModule?.hue ? ({ "--mod-hue": currentModule.hue } as React.CSSProperties) : undefined}
+              aria-hidden="true"
+            />
             <h2>{senior ? "函数图像与导数探究" : "函数图像与变化规律"}</h2>
             <span className="stageChip">{senior ? "高中实验" : "初中实验"}</span>
             <span className="statusHint">实时仿真 · 可调参数 · 公式推导</span>
           </div>
           <div className="experimentArea">
             <div className="canvasPane">
+              <GuideToast />
               <ExperimentCanvas
                 fn={fn}
                 fnDerivative={fnDerivative}
@@ -199,6 +317,7 @@ export default function Home() {
                 onSetTangentX={setTangentX}
                 onSetSecantX={(x1, x2) => { setSecantX1(x1); setSecantX2(x2); }}
                 theme={theme}
+                demoMode={demoMode}
               />
             </div>
             <div className="rightRail">
@@ -229,6 +348,9 @@ export default function Home() {
                 onSecantX2={setSecantX2}
                 onAreaM={setAreaM}
                 onAreaN={setAreaN}
+                demoActive={demoMode !== null}
+                onDemo={(m) => (m === null ? stopDemo() : startDemo(m))}
+                onReset={resetExperiment}
               />
               <MathTabs
                 preset={preset}

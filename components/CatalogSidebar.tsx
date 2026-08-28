@@ -150,7 +150,11 @@ export default function CatalogSidebar({ stage, onStageChange, activeId, onSelec
             const open = openModules[mod.title] ?? query.length > 0;
             const isFlagsModule = mod.experiments.some((e) => e.id === FLAGSHIP_ID);
             return (
-              <article className={"chapterShell" + (isFlagsModule ? " chapterFree" : "")} key={mod.title}>
+              <article
+                className={"chapterShell" + (isFlagsModule ? " chapterFree" : "")}
+                key={mod.title}
+                style={mod.hue ? ({ "--mod-hue": mod.hue } as React.CSSProperties) : undefined}
+              >
                 <button className="chapterMain" aria-expanded={open} onClick={() => setOpenModules((s) => ({ ...s, [mod.title]: !(s[mod.title] ?? false) }))}>
                   <span className="chapterIcon">{MODULE_ICONS[mod.icon] ? (() => { const I = MODULE_ICONS[mod.icon]; return <I size={16} />; })() : <IconQuadrant size={16} />}</span>
                   <strong className="chapterTitle">{mod.title}{isFlagsModule ? " ★" : ""}</strong>

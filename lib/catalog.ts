@@ -12,6 +12,7 @@ export interface Experiment {
 export interface Module {
   title: string;
   icon: string; // 图标 key（见 icons.tsx / CSS）
+  hue?: number; // 专属色相（0-360），用于模块 icon/标题染色（参考站每学科独立配色）
   experiments: Experiment[];
 }
 
@@ -29,6 +30,7 @@ const flags = (id: string, name: string, keywords: string[]): Experiment => ({
 // ---------- 高中（人教版 必修 + 选择性必修 主线） ----------
 export const SENIOR: Module[] = [
   {
+    hue: 210,
     title: "集合与常用逻辑用语",
     icon: "set",
     experiments: [
@@ -37,6 +39,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 250,
     title: "函数与导数",
     icon: "function",
     experiments: [
@@ -47,6 +50,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 190,
     title: "三角函数",
     icon: "trig",
     experiments: [
@@ -55,6 +59,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 155,
     title: "数列",
     icon: "sequence",
     experiments: [
@@ -63,6 +68,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 350,
     title: "不等式",
     icon: "inequality",
     experiments: [
@@ -71,6 +77,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 290,
     title: "解析几何",
     icon: "analytic",
     experiments: [
@@ -79,6 +86,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 325,
     title: "立体几何",
     icon: "solid",
     experiments: [
@@ -87,6 +95,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 32,
     title: "概率统计",
     icon: "prob",
     experiments: [
@@ -95,6 +104,7 @@ export const SENIOR: Module[] = [
     ],
   },
   {
+    hue: 262,
     title: "平面向量与复数",
     icon: "vector",
     experiments: [
@@ -107,6 +117,7 @@ export const SENIOR: Module[] = [
 // ---------- 初中（人教版 主线） ----------
 export const JUNIOR: Module[] = [
   {
+    hue: 210,
     title: "数与式",
     icon: "algebra",
     experiments: [
@@ -116,6 +127,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 350,
     title: "方程与不等式",
     icon: "equation",
     experiments: [
@@ -124,6 +136,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 250,
     title: "函数初步",
     icon: "function",
     experiments: [
@@ -134,6 +147,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 48,
     title: "三角形与四边形",
     icon: "geometry",
     experiments: [
@@ -142,6 +156,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 205,
     title: "圆",
     icon: "circle",
     experiments: [
@@ -150,6 +165,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 290,
     title: "图形的变换",
     icon: "transform",
     experiments: [
@@ -158,6 +174,7 @@ export const JUNIOR: Module[] = [
     ],
   },
   {
+    hue: 32,
     title: "统计与概率",
     icon: "stat",
     experiments: [

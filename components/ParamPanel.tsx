@@ -2,6 +2,7 @@
 // 参数面板：表达式输入 / 预设选择 / 参数滑块 / 功能开关
 import type { Preset, ParamDef } from "@/lib/derivatives";
 import { fmt } from "@/lib/math";
+import { useEffect, useRef, useState } from "react";
 import type { Stage } from "@/lib/catalog";
 import { IconAlert } from "./icons";
 
@@ -32,11 +33,33 @@ interface ParamPanelProps {
   onSecantX2: (v: number) => void;
   onAreaM: (v: number) => void;
   onAreaN: (v: number) => void;
+  demoActive: boolean;
+  onDemo: (mode: "params" | "tangent" | null) => void;
+  onReset: () => void;
 }
 
 function Slider({ label, value, min, max, step, disabled, onChange }: {
   label: string; value: number; min: number; max: number; step: number; disabled?: boolean; onChange: (v: number) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const v = parseFloat(draft);
+    if (!Number.isNaN(v)) {
+      onChange(Math.min(max, Math.max(min, v)));
+    }
+  };
+
   return (
     <label className={"sliderRow" + (disabled ? " disabled" : "")} title={disabled ? "表达式中未使用该参数" : undefined}>
       <span className="sliderLabel">{label}</span>
@@ -49,7 +72,33 @@ function Slider({ label, value, min, max, step, disabled, onChange }: {
         disabled={disabled}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />
-      <span className="sliderValue">{fmt(value, 2)}</span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="sliderNumInput"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          aria-label={label + "精确值"}
+        />
+      ) : (
+        <button
+          type="button"
+          className="sliderValue"
+          disabled={disabled}
+          title="点击直接输入数值"
+          onClick={() => {
+            setDraft(fmt(value, 2));
+            setEditing(true);
+          }}
+        >
+          {fmt(value, 2)}
+        </button>
+      )}
     </label>
   );
 }
@@ -77,7 +126,7 @@ export default function ParamPanel(props: ParamPanelProps) {
     stage, preset, presets, exprText, parseError, params, usedParams,
     showDerivative, showTangent, showArea, tangentX, secantX1, secantX2, areaM, areaN,
     onExprText, onSelectPreset, onParam, onShowDerivative, onShowTangent, onShowArea,
-    onTangentX, onSecantX1, onSecantX2, onAreaM, onAreaN,
+    onTangentX, onSecantX1, onSecantX2, onAreaM, onAreaN, demoActive, onDemo, onReset,
   } = props;
   const senior = stage === "senior";
 
@@ -159,7 +208,36 @@ export default function ParamPanel(props: ParamPanelProps) {
           <Slider label="区间 n =" value={areaN} min={-8} max={8} step={0.1} onChange={onAreaN} />
         </div>
       )}
-      <p className="paramHint">提示：点击画布可设置切点；拖拽画布平移，滚轮/按钮缩放</p>
+      <div className="demoRow">
+        <button
+          className={"demoBtn" + (demoActive ? " running" : "")}
+          onClick={() => onDemo(demoActive ? null : "params")}
+          aria-label={demoActive ? "停止参数演示" : "播放参数演示"}
+          title="自动演示：观察参数对图像的影响"
+        >
+          <span className={"demoPlayIcon" + (demoActive ? " paused" : "")}>{demoActive ? "■" : "▶"}</span>
+          {demoActive ? "演示中 · 点击任意处停止" : "自动演示"}
+        </button>
+        <button
+          className="demoBtn"
+          onClick={onReset}
+          aria-label="重置实验"
+          title="重置实验（快捷键 R）：恢复当前预设的默认参数与视图"
+        >
+          <span className="demoPlayIcon">↺</span>
+          重置
+        </button>
+        <button
+          className="demoBtn"
+          onClick={() => onDemo(demoActive ? null : "tangent")}
+          aria-label="播放切点巡航演示"
+          title="自动演示：切点沿曲线巡航，观察切线斜率变化（导数的几何意义）"
+        >
+          <span className="demoPlayIcon">✦</span>
+          切点巡航
+        </button>
+      </div>
+      <p className="paramHint">快捷键：1-7 切换预设 · R 重置 · D/T 演示 · 点击数值可直接输入</p>
     </div>
   );
 }
