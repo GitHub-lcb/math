@@ -673,6 +673,25 @@ input[type="range"]:disabled::-webkit-slider-thumb { background: var(--line); cu
 .valueCard.warn b { color: var(--warn); }
 .valueCard.warn { border-top: 2px solid var(--warn); }
 .trigWrap { background: var(--paper); }
+/* 圆锥曲线实验 */
+.conicTypeSwitch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  gap: 2px;
+  margin-bottom: 12px;
+}
+.conicTypePill {
+  padding: 5px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-ink);
+  transition: all 0.18s;
+}
+.conicTypePill.active { background: var(--accent); color: #fff; }
 .demoRow {
   display: flex; gap: 8px; margin-top: 12px;
   padding-top: 10px;

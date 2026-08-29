@@ -81,7 +81,7 @@ export const SENIOR: Module[] = [
     title: "解析几何",
     icon: "analytic",
     experiments: [
-      { id: "sen-anl-conic", name: "圆锥曲线画板", keywords: ["椭圆", "双曲线", "抛物线", "焦点", "准线", "离心率"], available: false, lockedNote: locked() },
+      { id: "conic-lab", name: "圆锥曲线画板", keywords: ["椭圆", "双曲线", "抛物线", "焦点", "准线", "离心率", "渐近线"], available: true },
       { id: "sen-anl-line", name: "直线与圆的位置关系", keywords: ["直线", "圆", "相交", "相切", "相离", "弦长"], available: false, lockedNote: locked() },
     ],
   },

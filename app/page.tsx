@@ -11,6 +11,9 @@ import GuideToast from "@/components/GuideToast";
 import TrigCanvas from "@/components/TrigCanvas";
 import TrigPanel from "@/components/TrigPanel";
 import TrigTabs from "@/components/TrigTabs";
+import ConicCanvas, { type ConicState } from "@/components/ConicCanvas";
+import ConicPanel from "@/components/ConicPanel";
+import ConicTabs from "@/components/ConicTabs";
 import { CATALOG, FLAGSHIP_ID, type Stage } from "@/lib/catalog";
 import { getPreset, getPresetOrFirst, PRESETS, presetsForStage, analyticDerivative, analyticSecondDerivative, numericDerivative, secondDerivativeAt, slopeAt, secantSlope as secantSlopeFn } from "@/lib/derivatives";
 import { parseAndMakeEvaluator } from "@/lib/parser";
@@ -37,6 +40,8 @@ export default function Home() {
   const [trigPlaying, setTrigPlaying] = useState(false);
   const [showCos, setShowCos] = useState(true);
   const isTrig = activeId === "trig-unit-circle";
+  const isConic = activeId === "conic-lab";
+  const [conic, setConic] = useState<ConicState>({ type: "ellipse", a: 4, b: 2.5, p: 1.5, t: 0.5 });
 
   // ---- 实验状态（单一事实源） ----
   const [stage, setStage] = useState<Stage>("senior");
@@ -203,7 +208,14 @@ export default function Home() {
         } catch { /* ignore */ }
       }
       const lab = qs.get("lab");
-      if (lab === "trig-unit-circle" || lab === FLAGSHIP_ID) setActiveId(lab);
+      if (lab === "trig-unit-circle" || lab === "conic-lab" || lab === FLAGSHIP_ID) setActiveId(lab);
+      const ct = qs.get("ct");
+      if (ct) {
+        try {
+          const parsed = JSON.parse(ct) as Partial<ConicState>;
+          if (parsed) setConic((prev) => ({ ...prev, ...parsed }));
+        } catch { /* ignore */ }
+      }
       const th = qs.get("th");
       if (th !== null && !Number.isNaN(parseFloat(th))) setTheta((parseFloat(th) * Math.PI) / 180);
       const x = qs.get("x");
@@ -230,11 +242,12 @@ export default function Home() {
         qs.set("a", showArea ? "1" : "0");
         qs.set("lab", activeId);
         qs.set("th", ((theta * 180) / Math.PI).toFixed(1));
+        if (isConic) qs.set("ct", JSON.stringify(conic));
         history.replaceState(null, "", "?" + qs.toString());
       } catch { /* ignore */ }
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta]);
+  }, [presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta, isConic, conic]);
 
   // ---- 主题 ----
   useEffect(() => {
@@ -422,7 +435,7 @@ export default function Home() {
           <CatalogSidebar
             stage={stage}
             onStageChange={changeStage}
-            activeId={FLAGSHIP_ID}
+            activeId={activeId}
             onSelect={onSelectExperiment}
             onExpand={() => setSidebarOpen(true)}
           />
@@ -434,9 +447,9 @@ export default function Home() {
               style={currentModule?.hue ? ({ "--mod-hue": currentModule.hue } as React.CSSProperties) : undefined}
               aria-hidden="true"
             />
-            <h2>{isTrig ? "单位圆与三角函数线" : senior ? "函数图像与导数探究" : "函数图像与变化规律"}</h2>
-            <span className="stageChip">{isTrig ? "高中实验" : senior ? "高中实验" : "初中实验"}</span>
-            <span className="statusHint">{isTrig ? "实时仿真 · 点击或拖动 · 三角联动" : "实时仿真 · 可调参数 · 公式推导"}</span>
+            <h2>{isTrig ? "单位圆与三角函数线" : isConic ? "圆锥曲线画板" : senior ? "函数图像与导数探究" : "函数图像与变化规律"}</h2>
+            <span className="stageChip">{isTrig || isConic ? "高中实验" : senior ? "高中实验" : "初中实验"}</span>
+            <span className="statusHint">{isTrig ? "实时仿真 · 点击或拖动 · 三角联动" : isConic ? "椭圆 · 双曲线 · 抛物线 · 焦点与准线" : "实时仿真 · 可调参数 · 公式推导"}</span>
           </div>
           <div className="experimentArea">
             {isTrig ? (
@@ -461,6 +474,16 @@ export default function Home() {
                 onShowCos={setShowCos}
               />
               <TrigTabs theta={theta} onTheta={setTheta} />
+            </div>
+              </>
+            ) : isConic ? (
+              <>
+            <div className="canvasPane">
+              <ConicCanvas state={conic} theme={theme} />
+            </div>
+            <div className="rightRail">
+              <ConicPanel state={conic} onChange={setConic} />
+              <ConicTabs state={conic} />
             </div>
               </>
             ) : (
