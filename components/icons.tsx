@@ -139,6 +139,14 @@ export const IconTrending = (p: P) => (
   </S>
 );
 
+export const IconDownload = (p: P) => (
+  <S {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="M7 10l5 5 5-5" />
+    <path d="M12 15V3" />
+  </S>
+);
+
 export const IconBook = (p: P) => (
   <S {...p}>
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />

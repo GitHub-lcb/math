@@ -20,6 +20,7 @@ export interface Preset {
   expr: string;              // 表达式文本（parser 输入）
   desc: string;              // 一句话说明
   derivativeExpr: string;    // f'(x) 表达式文本
+  secondDerivativeExpr?: string; // f''(x) 表达式文本（解析标注拐点用）
   formulas: string[];        // KaTeX 公式卡（f(x)、f'(x)、其他推导）
   points: PresetPoint[];     // 极值点/特殊点
   warn: string[];            // 易错点
@@ -36,6 +37,7 @@ export const PRESETS: Preset[] = [
     expr: "a*x^2 + b*x + c",
     desc: "抛物线：开口方向、顶点、对称轴与参数的关系，导数为一次函数（直线）。",
     derivativeExpr: "2*a*x + b",
+    secondDerivativeExpr: "2*a",
     formulas: [
       "f(x)=ax^2+bx+c",
       "f'(x)=2ax+b",
@@ -59,6 +61,7 @@ export const PRESETS: Preset[] = [
     expr: "x^3 - 3*x + a",
     desc: "三次曲线的拐点、极值与导数零点的关系：导数是二次函数。",
     derivativeExpr: "3*x^2 - 3",
+    secondDerivativeExpr: "6*x",
     formulas: [
       "f(x)=x^3-3x+a",
       "f'(x)=3x^2-3=3(x-1)(x+1)",
@@ -82,6 +85,7 @@ export const PRESETS: Preset[] = [
     expr: "a*sin(b*x + c) + d",
     desc: "三角函数图像：振幅、周期、相位、纵向平移四个参数的综合舞台。",
     derivativeExpr: "a*b*cos(b*x + c)",
+    secondDerivativeExpr: "-a*b^2*sin(b*x + c)",
     formulas: [
       "f(x)=a\\,\\sin(bx+c)+d",
       "f'(x)=ab\\,\\cos(bx+c)",
@@ -105,6 +109,7 @@ export const PRESETS: Preset[] = [
     expr: "a*e^(b*x) + c",
     desc: "指数增长与衰减：底数与系数的图像特征，导数与自身成比例。",
     derivativeExpr: "a*b*e^(b*x)",
+    secondDerivativeExpr: "a*b^2*e^(b*x)",
     formulas: [
       "f(x)=ae^{bx}+c",
       "f'(x)=abe^{bx}=b\\,(f(x)-c)",
@@ -126,6 +131,7 @@ export const PRESETS: Preset[] = [
     expr: "a*ln(b*x + c)",
     desc: "对数曲线：定义域约束 bx+c>0，导数随 x 增大而减小。",
     derivativeExpr: "a*b/(b*x + c)",
+    secondDerivativeExpr: "-a*b^2/(b*x + c)^2",
     formulas: [
       "f(x)=a\\,\\ln(bx+c)",
       "f'(x)=\\cfrac{ab}{bx+c}",
@@ -147,6 +153,7 @@ export const PRESETS: Preset[] = [
     expr: "a/(x - b) + c",
     desc: "双曲线：两支、渐近线 x=b 与 y=c，导数恒为负（a>0 时）。",
     derivativeExpr: "-a/(x - b)^2",
+    secondDerivativeExpr: "2*a/(x - b)^3",
     formulas: [
       "f(x)=\\cfrac{a}{x-b}+c",
       "f'(x)=-\\cfrac{a}{(x-b)^2}",
@@ -170,6 +177,7 @@ export const PRESETS: Preset[] = [
     expr: "a*x*sin(x)",
     desc: "高中进阶：正弦与线性项的乘积，振幅逐渐增大的振荡曲线。",
     derivativeExpr: "a*(sin(x) + x*cos(x))",
+    secondDerivativeExpr: "a*(2*cos(x) - x*sin(x))",
     formulas: [
       "f(x)=ax\\,\\sin x",
       "f'(x)=a(\\sin x+x\\cos x)",
@@ -212,6 +220,40 @@ export function analyticDerivative(presetId: string, params: Record<string, numb
   } catch {
     return null;
   }
+}
+
+// 解析二阶导数：命中预设返回 f'' 求值器，否则 null
+export function analyticSecondDerivative(presetId: string, params: Record<string, number>): ((x: number) => number) | null {
+  const p = getPreset(presetId);
+  if (!p || !p.secondDerivativeExpr) return null;
+  try {
+    const expr = parse(p.secondDerivativeExpr);
+    return makeEvaluator(expr, params);
+  } catch {
+    return null;
+  }
+}
+
+// 统一二阶导入口
+export function secondDerivativeAt(
+  presetId: string,
+  isCustom: boolean,
+  f: (x: number) => number,
+  params: Record<string, number>,
+  x: number
+): number {
+  if (!isCustom) {
+    const a2 = analyticSecondDerivative(presetId, params);
+    if (a2) {
+      const v = a2(x);
+      return Number.isFinite(v) ? v : NaN;
+    }
+  }
+  // 数值二阶导：中心差分商的差分
+  const h = 1e-3 * Math.max(1, Math.abs(x));
+  const y0 = f(x - h), y1 = f(x), y2 = f(x + h);
+  if (!isFinite(y0) || !isFinite(y1) || !isFinite(y2)) return NaN;
+  return (y2 - 2 * y1 + y0) / (h * h);
 }
 
 // 中心差分数值微分（h 随 |x| 自适应）

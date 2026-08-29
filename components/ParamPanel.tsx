@@ -15,6 +15,7 @@ interface ParamPanelProps {
   params: Record<string, number>;
   usedParams: string[];
   showDerivative: boolean;
+  showF2: boolean;
   showTangent: boolean;
   showArea: boolean;
   tangentX: number;
@@ -26,6 +27,7 @@ interface ParamPanelProps {
   onSelectPreset: (id: string) => void;
   onParam: (name: string, v: number) => void;
   onShowDerivative: (v: boolean) => void;
+  onShowF2: (v: boolean) => void;
   onShowTangent: (v: boolean) => void;
   onShowArea: (v: boolean) => void;
   onTangentX: (v: number) => void;
@@ -124,8 +126,8 @@ function Toggle({ label, checked, onChange, disabled }: {
 export default function ParamPanel(props: ParamPanelProps) {
   const {
     stage, preset, presets, exprText, parseError, params, usedParams,
-    showDerivative, showTangent, showArea, tangentX, secantX1, secantX2, areaM, areaN,
-    onExprText, onSelectPreset, onParam, onShowDerivative, onShowTangent, onShowArea,
+    showDerivative, showF2, showTangent, showArea, tangentX, secantX1, secantX2, areaM, areaN,
+    onExprText, onSelectPreset, onParam, onShowDerivative, onShowF2, onShowTangent, onShowArea,
     onTangentX, onSecantX1, onSecantX2, onAreaM, onAreaN, demoActive, onDemo, onReset,
   } = props;
   const senior = stage === "senior";
@@ -184,6 +186,9 @@ export default function ParamPanel(props: ParamPanelProps) {
       <div className="toggleGroup">
         {senior && (
           <Toggle label="导数曲线 f′(x)" checked={showDerivative} onChange={onShowDerivative} />
+        )}
+        {senior && showDerivative && (
+          <Toggle label="二阶导数 f″(x)" checked={showF2} onChange={onShowF2} />
         )}
         <Toggle label={senior ? "切线（切点可拖）" : "割线（两点变化快慢）"} checked={showTangent} onChange={onShowTangent} />
         {senior && (

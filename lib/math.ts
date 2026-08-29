@@ -53,7 +53,10 @@ export function findZeros(fn: (x: number) => number, lo: number, hi: number, sam
       prevX = x; prevY = y;
       continue;
     }
-    if (prevY !== 0 && y !== 0 && Math.sign(prevY) !== Math.sign(y)) {
+    if (y === 0) {
+      // 精确命中零点
+      if (out.length === 0 || Math.abs(x - out[out.length - 1]) > dx * 0.5) out.push(x);
+    } else if (prevY !== 0 && Math.sign(prevY) !== Math.sign(y)) {
       // 二分精化
       let a = prevX;
       let b = x;
@@ -71,6 +74,38 @@ export function findZeros(fn: (x: number) => number, lo: number, hi: number, sam
     }
     prevX = x;
     prevY = y;
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+
+
+// 数值求拐点：f'' 变号处（跳过断点）
+export function findInflections(fn2: (x: number) => number, lo: number, hi: number, samples = 300, max = 4): number[] {
+  const out: number[] = [];
+  const dx = (hi - lo) / samples;
+  let prevX = lo;
+  let prevD2 = fn2(lo);
+  for (let i = 1; i <= samples; i++) {
+    const x = lo + dx * i;
+    const d2 = fn2(x);
+    if (!isFinite(prevD2) || !isFinite(d2)) {
+      prevX = x; prevD2 = d2;
+      continue;
+    }
+    if (d2 === 0) {
+      if (out.length === 0 || Math.abs(x - out[out.length - 1]) > dx * 0.6) out.push(x);
+    } else if (prevD2 !== 0 && Math.sign(prevD2) !== Math.sign(d2)) {
+      // 线性插值精化
+      const t = prevD2 / (prevD2 - d2);
+      const root = prevX + t * dx;
+      if (out.length === 0 || Math.abs(root - out[out.length - 1]) > dx * 0.6) {
+        out.push(+root.toFixed(5));
+      }
+    }
+    prevX = x;
+    prevD2 = d2;
     if (out.length >= max) break;
   }
   return out;

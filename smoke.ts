@@ -1,7 +1,8 @@
 // 冒烟测试：node --experimental-strip-types smoke.ts
 import { parseAndMakeEvaluator, parse, makeEvaluator, MAX_INPUT_LEN } from "./lib/parser.ts";
 import { numericDerivative, secantSlope, PRESETS } from "./lib/derivatives.ts";
-import { niceTicks, fmt } from "./lib/math.ts";
+import { niceTicks, fmt, findZeros, findExtrema, findInflections } from "./lib/math.ts";
+import { secondDerivativeAt, getPresetOrFirst } from "./lib/derivatives.ts";
 
 let failures = 0;
 const assert = (name: string, cond: boolean, extra = "") => {
@@ -43,6 +44,19 @@ assert("割线斜率 (x², 1..3) = 4", Math.abs(secantSlope(f, 1, 3) - 4) < 1e-9
 assert("预设数量 = 7", PRESETS.length === 7);
 assert("预设全部含公式", PRESETS.every((p) => p.formulas.length > 0));
 assert("预设全部含易错点", PRESETS.every((p) => p.warn.length > 0));
+
+console.log("== scanners ==");
+const sq = (x: number) => x * x - 1; // 零点 ±1
+const zs = findZeros(sq, -3, 3);
+assert("findZeros x²-1 → 2 个", zs.length === 2 && zs.some((z) => Math.abs(z + 1) < 1e-3) && zs.some((z) => Math.abs(z - 1) < 1e-3), JSON.stringify(zs));
+const cu = (x: number) => x * x * x - 3 * x; // 极值 ±1 拐点 0
+const exs = findExtrema(cu, (x) => 3 * x * x - 3, -3, 3);
+assert("findExtrema 三次函数 → 2 个", exs.length === 2, JSON.stringify(exs));
+const ifs = findInflections((x) => 6 * x, -3, 3);
+assert("findInflections 6x → 拐点 0", ifs.length === 1 && Math.abs(ifs[0]) < 1e-3, JSON.stringify(ifs));
+const quad = getPresetOrFirst("quadratic");
+assert("二阶导 quadratic@1", Math.abs(secondDerivativeAt("quadratic", false, (x) => x * x, { a: 1, b: 0, c: 0 }, 1) - 2) < 1e-9);
+assert("预设全部含二阶导", quad.secondDerivativeExpr !== undefined);
 
 console.log("== math ==");
 const t = niceTicks(-8, 8, 10);

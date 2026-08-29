@@ -5,14 +5,16 @@ import * as plt from "@/lib/plotter";
 import type { Viewport } from "@/lib/plotter";
 import { fmt } from "@/lib/math";
 import type { Stage } from "@/lib/catalog";
-import { IconZoomIn, IconZoomOut, IconMaximize } from "./icons";
+import { IconDownload, IconZoomIn, IconZoomOut, IconMaximize } from "./icons";
 
 export interface CanvasProps {
   fn: ((x: number) => number) | null;
   fnDerivative: ((x: number) => number) | null;
+  fnSecondDerivative: ((x: number) => number) | null;
   error: string | null;
   stage: Stage;
   showDerivative: boolean;
+  showF2: boolean;
   showTangent: boolean;
   showArea: boolean;
   tangentX: number;
@@ -27,14 +29,14 @@ export interface CanvasProps {
   onSetSecantX: (x1: number, x2: number) => void;
   theme: "dark" | "light";
   demoMode?: "params" | "tangent" | null;
-  annotations?: { type: "zero" | "extrema"; x: number; y: number }[];
+  annotations?: { type: "zero" | "extrema" | "inflection"; x: number; y: number }[];
 }
 
 const INIT_VP: Viewport = { xMin: -8, xMax: 8, yMin: -5.5, yMax: 5.5 };
 
 export default function ExperimentCanvas(props: CanvasProps) {
   const {
-    fn, fnDerivative, error, stage, showDerivative, showTangent, showArea,
+    fn, fnDerivative, fnSecondDerivative, error, stage, showDerivative, showF2, showTangent, showArea,
     tangentX, secantX1, secantX2, areaM, areaN, slopeAtPoint, secantSlope, resetToken,
     onSetTangentX, onSetSecantX, theme, demoMode, annotations,
   } = props;
@@ -73,6 +75,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
       area: g("--area-fill", "rgba(124,92,255,0.18)"),
       danger: g("--danger", "#f87171"),
       warn: g("--warn", "#fbbf24"),
+      infl: g("--infl", "#22d3ee"),
       white: g("--paper", "#13171c"),
       paper: g("--paper", "#13171c"),
       chipBg: g("--paper-soft", "#1a1f27"),
@@ -130,8 +133,13 @@ export default function ExperimentCanvas(props: CanvasProps) {
         for (const a of annotations) {
           const y = fn(a.x);
           if (!Number.isFinite(y)) continue;
-          const col = a.type === "zero" ? palette.accent2 : palette.warn;
-          plt.drawMarker(d, a.x, y, a.type === "zero" ? "零点" : "极值", col, 3.6);
+          if (a.type === "zero") {
+            plt.drawMarker(d, a.x, y, "零点", palette.accent2, 3.6);
+          } else if (a.type === "extrema") {
+            plt.drawMarker(d, a.x, y, "极值", palette.warn, 3.6);
+          } else if (a.type === "inflection") {
+            plt.drawMarker(d, a.x, y, "拐点", palette.infl, 3.6);
+          }
         }
       }
       if (senior && showDerivative && fnDerivative) {
@@ -143,6 +151,19 @@ export default function ExperimentCanvas(props: CanvasProps) {
         ctx.fillStyle = palette.accent2;
         ctx.textAlign = "left";
         ctx.fillText("f′(x)", lx, ly);
+        ctx.restore();
+      }
+      if (senior && showDerivative && showF2 && fnSecondDerivative) {
+        // 二阶导曲线（虚线，防与 f' 混淆）
+        ctx.save();
+        ctx.setLineDash([6, 5]);
+        plt.drawCurve(d, fnSecondDerivative, palette.infl, 1.6);
+        ctx.setLineDash([]);
+        const [lx2, ly2] = plt.toScreen(d, vpRef.current.xMin + (vpRef.current.xMax - vpRef.current.xMin) * 0.02, vpRef.current.yMin + (vpRef.current.yMax - vpRef.current.yMin) * 0.06);
+        ctx.fillStyle = palette.infl;
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("f″(x)", lx2, ly2);
         ctx.restore();
       }
       if (showTangent && senior) {
@@ -375,6 +396,19 @@ export default function ExperimentCanvas(props: CanvasProps) {
     vpRef.current = { ...INIT_VP };
     forceRender((x) => x + 1);
   };
+  const exportPng = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    try {
+      const url = cv.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "函数图像与导数探究.png";
+      a.click();
+    } catch {
+      /* ignore */
+    }
+  };
 
   // 悬停坐标转世界坐标依赖 palette；palette 可能为 null（SSR 首帧），用哨兵
   void rafRef;
@@ -405,6 +439,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
         <button onClick={() => zoom(1 / 1.25)} aria-label="放大" title="放大"><IconZoomIn size={15} /></button>
         <button onClick={() => zoom(1.25)} aria-label="缩小" title="缩小"><IconZoomOut size={15} /></button>
         <button onClick={resetView} aria-label="适应窗口" title="复位视图"><IconMaximize size={15} /></button>
+        <button onClick={exportPng} aria-label="导出图片" title="导出当前图像为 PNG"><IconDownload size={15} /></button>
       </div>
       {senior && showArea && areaValueRef.current != null && (
         <div className="areaBadge">∫ ≈ {fmt(areaValueRef.current, 3)}（有向面积）</div>

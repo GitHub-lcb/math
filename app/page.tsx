@@ -8,11 +8,14 @@ import ExperimentCanvas from "@/components/ExperimentCanvas";
 import MathTabs from "@/components/MathTabs";
 import AnnotationBoard from "@/components/AnnotationBoard";
 import GuideToast from "@/components/GuideToast";
+import TrigCanvas from "@/components/TrigCanvas";
+import TrigPanel from "@/components/TrigPanel";
+import TrigTabs from "@/components/TrigTabs";
 import { CATALOG, FLAGSHIP_ID, type Stage } from "@/lib/catalog";
-import { getPreset, getPresetOrFirst, PRESETS, presetsForStage, analyticDerivative, numericDerivative, slopeAt, secantSlope as secantSlopeFn } from "@/lib/derivatives";
+import { getPreset, getPresetOrFirst, PRESETS, presetsForStage, analyticDerivative, analyticSecondDerivative, numericDerivative, secondDerivativeAt, slopeAt, secantSlope as secantSlopeFn } from "@/lib/derivatives";
 import { parseAndMakeEvaluator } from "@/lib/parser";
 import { SITE_ICP, SITE_NAME, SITE_THEME_KEY, DEFAULT_THEME } from "@/lib/siteConfig";
-import { fmt, findExtrema, findZeros } from "@/lib/math";
+import { fmt, findExtrema, findInflections, findZeros } from "@/lib/math";
 
 const presetDefaults = (id: string): Record<string, number> => {
   const p = getPreset(id);
@@ -28,6 +31,13 @@ export default function Home() {
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // ---- 实验切换 ----
+  const [activeId, setActiveId] = useState<string>(FLAGSHIP_ID);
+  const [theta, setTheta] = useState(Math.PI / 4);
+  const [trigPlaying, setTrigPlaying] = useState(false);
+  const [showCos, setShowCos] = useState(true);
+  const isTrig = activeId === "trig-unit-circle";
+
   // ---- 实验状态（单一事实源） ----
   const [stage, setStage] = useState<Stage>("senior");
   const [presetId, setPresetId] = useState("quadratic");
@@ -35,6 +45,7 @@ export default function Home() {
   const [params, setParams] = useState<Record<string, number>>(() => presetDefaults("quadratic"));
   const [usedParams, setUsedParams] = useState<string[]>(["a", "b", "c"]);
   const [showDerivative, setShowDerivative] = useState(false);
+  const [showF2, setShowF2] = useState(false);
   const [showTangent, setShowTangent] = useState(true);
   const [showArea, setShowArea] = useState(false);
   const [tangentX, setTangentX] = useState(1);
@@ -78,6 +89,16 @@ export default function Home() {
     return (x: number) => numericDerivative(fn, x);
   }, [fn, isCustom, preset.id, params]);
 
+  // ---- 二阶导数函数 ----
+  const fnSecondDerivative = useMemo(() => {
+    if (!fn) return null;
+    if (!isCustom) {
+      const a2 = analyticSecondDerivative(preset.id, params);
+      if (a2) return a2;
+    }
+    return (x: number) => secondDerivativeAt(preset.id, isCustom, fn, params, x);
+  }, [fn, isCustom, preset.id, params]);
+
   const slopeAtPoint = useCallback((x: number) => {
     if (!fn) return NaN;
     return slopeAt(isCustom ? "" : preset.id, fn, params, x);
@@ -97,7 +118,7 @@ export default function Home() {
   // ---- 零点 / 极值点标注（预设解析优先，自定义数值扫描） ----
   const annotations = useMemo(() => {
     if (!fn) return [];
-    const pts: { type: "zero" | "extrema"; x: number; y: number }[] = [];
+    const pts: { type: "zero" | "extrema" | "inflection"; x: number; y: number }[] = [];
     // 零点
     const zeros = findZeros(fn, -8, 8);
     for (const z of zeros.slice(0, 4)) {
@@ -126,8 +147,17 @@ export default function Home() {
         pts.push({ type: "extrema", x: 1, y: fn(1) });
       }
     }
+    // 拐点（f'' 变号）
+    const f2 = fnSecondDerivative;
+    if (f2) {
+      const infls = findInflections(f2, -8, 8);
+      for (const ix of infls.slice(0, 3)) {
+        const y = fn(ix);
+        if (Number.isFinite(y)) pts.push({ type: "inflection", x: ix, y });
+      }
+    }
     return pts;
-  }, [fn, fnDerivative, isCustom, preset.id, params]);
+  }, [fn, fnDerivative, fnSecondDerivative, isCustom, preset.id, params]);
 
   // ---- 实时数值 ----
   const fnValue = useMemo(() => (fn ? fn(senior ? tangentX : secantX2) : null), [fn, senior, tangentX, secantX2]);
@@ -172,6 +202,10 @@ export default function Home() {
           }
         } catch { /* ignore */ }
       }
+      const lab = qs.get("lab");
+      if (lab === "trig-unit-circle" || lab === FLAGSHIP_ID) setActiveId(lab);
+      const th = qs.get("th");
+      if (th !== null && !Number.isNaN(parseFloat(th))) setTheta((parseFloat(th) * Math.PI) / 180);
       const x = qs.get("x");
       if (x !== null && !Number.isNaN(parseFloat(x))) setTangentX(parseFloat(x));
       const d = qs.get("d");
@@ -194,11 +228,13 @@ export default function Home() {
         qs.set("x", tangentX.toFixed(2));
         qs.set("d", showDerivative ? "1" : "0");
         qs.set("a", showArea ? "1" : "0");
+        qs.set("lab", activeId);
+        qs.set("th", ((theta * 180) / Math.PI).toFixed(1));
         history.replaceState(null, "", "?" + qs.toString());
       } catch { /* ignore */ }
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [presetId, stage, params, tangentX, showDerivative, showArea]);
+  }, [presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta]);
 
   // ---- 主题 ----
   useEffect(() => {
@@ -248,10 +284,23 @@ export default function Home() {
   }, [presetId, applyPreset]);
 
   const onSelectExperiment = useCallback((id: string) => {
-    if (id === FLAGSHIP_ID) {
-      setSidebarOpen(false);
-    }
+    setActiveId(id);
+    setSidebarOpen(false);
   }, []);
+
+  // 单位圆自动旋转（rAF，≈12s 一圈）
+  useEffect(() => {
+    if (!trigPlaying) return;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      setTheta((t) => (t + Math.PI / 90) % (Math.PI * 2));
+      void now; void t0;
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [trigPlaying]);
 
   const presets = useMemo(() => presetsForStage(stage), [stage]);
 
@@ -385,19 +434,47 @@ export default function Home() {
               style={currentModule?.hue ? ({ "--mod-hue": currentModule.hue } as React.CSSProperties) : undefined}
               aria-hidden="true"
             />
-            <h2>{senior ? "函数图像与导数探究" : "函数图像与变化规律"}</h2>
-            <span className="stageChip">{senior ? "高中实验" : "初中实验"}</span>
-            <span className="statusHint">实时仿真 · 可调参数 · 公式推导</span>
+            <h2>{isTrig ? "单位圆与三角函数线" : senior ? "函数图像与导数探究" : "函数图像与变化规律"}</h2>
+            <span className="stageChip">{isTrig ? "高中实验" : senior ? "高中实验" : "初中实验"}</span>
+            <span className="statusHint">{isTrig ? "实时仿真 · 点击或拖动 · 三角联动" : "实时仿真 · 可调参数 · 公式推导"}</span>
           </div>
           <div className="experimentArea">
+            {isTrig ? (
+              <>
+            <div className="canvasPane">
+              <TrigCanvas
+                theta={theta}
+                onTheta={setTheta}
+                showCos={showCos}
+                theme={theme}
+                playing={trigPlaying}
+                onTogglePlay={() => setTrigPlaying((v) => !v)}
+              />
+            </div>
+            <div className="rightRail">
+              <TrigPanel
+                theta={theta}
+                onTheta={setTheta}
+                playing={trigPlaying}
+                onTogglePlay={() => setTrigPlaying((v) => !v)}
+                showCos={showCos}
+                onShowCos={setShowCos}
+              />
+              <TrigTabs theta={theta} onTheta={setTheta} />
+            </div>
+              </>
+            ) : (
+              <>
             <div className="canvasPane">
               <GuideToast />
               <ExperimentCanvas
                 fn={fn}
                 fnDerivative={fnDerivative}
+                fnSecondDerivative={fnSecondDerivative}
                 error={parseState.error}
                 stage={stage}
                 showDerivative={senior && showDerivative}
+                showF2={senior && showF2}
                 showTangent={showTangent}
                 showArea={senior && showArea}
                 tangentX={tangentX}
@@ -425,6 +502,7 @@ export default function Home() {
                 params={params}
                 usedParams={usedParams}
                 showDerivative={showDerivative}
+                showF2={showF2}
                 showTangent={showTangent}
                 showArea={showArea}
                 tangentX={tangentX}
@@ -436,6 +514,7 @@ export default function Home() {
                 onSelectPreset={applyPreset}
                 onParam={(n, v) => setParams((s) => ({ ...s, [n]: v }))}
                 onShowDerivative={setShowDerivative}
+                onShowF2={setShowF2}
                 onShowTangent={setShowTangent}
                 onShowArea={setShowArea}
                 onTangentX={setTangentX}
@@ -475,6 +554,8 @@ export default function Home() {
                 }}
               />
             </div>
+              </>
+            )}
           </div>
           <footer className="appFooter">
             <span aria-hidden="true" />

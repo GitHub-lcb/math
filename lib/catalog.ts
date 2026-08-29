@@ -54,7 +54,7 @@ export const SENIOR: Module[] = [
     title: "三角函数",
     icon: "trig",
     experiments: [
-      { id: "sen-trig-circle", name: "单位圆与三角函数线", keywords: ["单位圆", "正弦", "余弦", "正切", "三角函数线", "弧度"], available: false, lockedNote: locked() },
+      { id: "trig-unit-circle", name: "单位圆与三角函数线", keywords: ["单位圆", "正弦", "余弦", "正切", "三角函数线", "弧度", "sin", "cos"], available: true },
       { id: "sen-trig-wave", name: "正弦型函数 y=Asin(ωx+φ)", keywords: ["振幅", "周期", "相位", "初相", "图像变换"], available: false, lockedNote: locked() },
     ],
   },

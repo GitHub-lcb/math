@@ -22,6 +22,7 @@ export interface Palette {
   paper: string;     // 画布背景（marker 空心填充）
   chipBg: string;    // 悬停信息芯片底色
   warn: string;      // 极值点/警示标注
+  infl: string;      // 二阶导曲线/拐点（青色）
 }
 
 export interface CanvasGeom {

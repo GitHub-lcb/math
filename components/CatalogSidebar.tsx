@@ -44,8 +44,11 @@ export default function CatalogSidebar({ stage, onStageChange, activeId, onSelec
   }, [modules, q]);
 
   const matched = filtered.reduce((s, x) => s + x.experiments.length, 0);
-  const flagsIndex = modules.findIndex((m) => m.experiments.some((e) => e.id === FLAGSHIP_ID));
-  const flagsExperiment = flagsIndex >= 0 ? modules[flagsIndex].experiments.find((e) => e.id === FLAGSHIP_ID) : null;
+  // 免费体验组：当前学段内所有可用实验（按模块分组）
+  const freeExperiments = modules
+    .map((mod) => ({ mod, exps: mod.experiments.filter((e) => e.available) }))
+    .filter((x) => x.exps.length > 0)
+    .flatMap((x) => x.exps.map((exp) => ({ mod: x.mod, exp })));
 
   if (collapsed) {
     return (
@@ -120,23 +123,27 @@ export default function CatalogSidebar({ stage, onStageChange, activeId, onSelec
           </div>
         </div>
 
-        {!q && flagsExperiment && flagsIndex >= 0 && (
+        {!q && freeExperiments.length > 0 && (
           <div className="freeGroup" data-free="true">
             <div className="freeGroupHead">
               <IconSparkles size={14} className="freeSparkle" />
               <strong>免费体验</strong>
             </div>
             <div className="freeGroupBody">
-              <div className="moduleRow">
-                <div className="moduleHead">
-                  <span className="moduleTitle"><IconTrendingDot />{modules[flagsIndex].title}</span>
-                  <span className="moduleBadge">{modules[flagsIndex].experiments.length}</span>
+              {freeExperiments.map(({ mod, exp }) => (
+                <div key={exp.id} className="freeExpBlock">
+                  <div className="moduleRow">
+                    <div className="moduleHead">
+                      <span className="moduleTitle"><IconTrendingDot />{mod.title}</span>
+                      <span className="moduleBadge">{mod.experiments.length}</span>
+                    </div>
+                  </div>
+                  <button className={"expRow" + (activeId === exp.id ? " active" : "") + " expRowFree"} onClick={() => onSelect(exp.id)}>
+                    <span className="expName">★ {exp.name}</span>
+                    <span className="expFreeTag">免费</span>
+                  </button>
                 </div>
-              </div>
-              <button className={"expRow" + (activeId === flagsExperiment.id ? " active" : "") + " expRowFree"} onClick={() => onSelect(flagsExperiment.id)}>
-                <span className="expName">★ {flagsExperiment.name}</span>
-                <span className="expFreeTag">免费</span>
-              </button>
+              ))}
             </div>
           </div>
         )}
