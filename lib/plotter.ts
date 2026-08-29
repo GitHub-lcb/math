@@ -21,6 +21,7 @@ export interface Palette {
   white: string;     // 悬停标注底色
   paper: string;     // 画布背景（marker 空心填充）
   chipBg: string;    // 悬停信息芯片底色
+  warn: string;      // 极值点/警示标注
 }
 
 export interface CanvasGeom {
@@ -294,4 +295,81 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+// 垂直/水平投影虚线（数学教学常用：切点处横竖虚线）
+export function drawProjection(d: DrawCtx, x: number, y: number, color: string): void {
+  const { ctx, w, h } = d;
+  const [sx, sy] = toScreen(d, x, y);
+  if (sx < -10 || sx > w + 10 || sy < -10 || sy > h + 10) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(sx, h);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(w, sy);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// 切点旁浮动数值芯片（拖动时跟随）
+export function drawChip(d: DrawCtx, x: number, y: number, lines: string[], color: string): void {
+  const { ctx, w, h } = d;
+  const [sx, sy] = toScreen(d, x, y);
+  if (sx < -40 || sx > w + 40 || sy < -40 || sy > h + 40) return;
+  ctx.save();
+  ctx.font = "11px system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  const lineH = 15;
+  const padX = 8;
+  const padY = 6;
+  const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
+  const height = lines.length * lineH + padY * 2;
+  let bx = sx + 14;
+  let by = sy - height - 6;
+  if (bx + width > w - 4) bx = sx - width - 14;
+  if (by < 4) by = sy + 14;
+  ctx.fillStyle = d.palette.chipBg;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  roundRect(ctx, bx, by, width, height, 7);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  lines.forEach((l, i) => {
+    ctx.fillText(l, bx + padX, by + padY + i * lineH + lineH / 2);
+  });
+  ctx.restore();
+}
+
+// 曲线辉光：暗色霓虹感（叠加一次宽模糊描边）
+export function drawGlow(d: DrawCtx, xMin: number, xMax: number, fn: (x: number) => number, color: string): void {
+  const { ctx, w, vp } = d;
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  PEN(d, color, 6);
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  let drawing = false;
+  const pxStep = Math.max(2, Math.round(w / 500));
+  for (let px = 0; px <= w; px += pxStep) {
+    const [wx] = toWorld(d, px, 0);
+    if (wx < xMin || wx > xMax) { drawing = false; continue; }
+    const y = fn(wx);
+    if (Number.isNaN(y) || !isFinite(y)) { drawing = false; continue; }
+    if (y > vp.yMax * 40 || y < vp.yMin * 40) { drawing = false; continue; }
+    const [, sy] = toScreen(d, wx, y);
+    if (!drawing) { ctx.moveTo(px, sy); drawing = true; }
+    else ctx.lineTo(px, sy);
+  }
+  ctx.stroke();
+  ctx.restore();
 }

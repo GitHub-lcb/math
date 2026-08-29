@@ -39,3 +39,79 @@ export function fmt(v: number, digits = 2): string {
   const s = v.toFixed(digits);
   return s.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 }
+
+// 数值求零点（二分法）：在 [lo,hi] 均匀采样，符号变化处二分收敛
+export function findZeros(fn: (x: number) => number, lo: number, hi: number, samples = 240, max = 8): number[] {
+  const out: number[] = [];
+  const dx = (hi - lo) / samples;
+  let prevX = lo;
+  let prevY = fn(lo);
+  for (let i = 1; i <= samples; i++) {
+    const x = lo + dx * i;
+    const y = fn(x);
+    if (!isFinite(prevY) || !isFinite(y)) {
+      prevX = x; prevY = y;
+      continue;
+    }
+    if (prevY !== 0 && y !== 0 && Math.sign(prevY) !== Math.sign(y)) {
+      // 二分精化
+      let a = prevX;
+      let b = x;
+      for (let k = 0; k < 40; k++) {
+        const mid = (a + b) / 2;
+        const ym = fn(mid);
+        if (!isFinite(ym)) break;
+        if (Math.sign(ym) === Math.sign(prevY)) a = mid;
+        else b = mid;
+      }
+      const root = (a + b) / 2;
+      if (out.length === 0 || Math.abs(root - out[out.length - 1]) > dx * 0.5) {
+        out.push(root);
+      }
+    }
+    prevX = x;
+    prevY = y;
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+// 数值求极值点：扫描导数符号变化（f' 由中心差分近似）
+export function findExtrema(fn: (x: number) => number, fnDeriv: (x: number) => number, lo: number, hi: number, samples = 260, max = 5): number[] {
+  const out: number[] = [];
+  const dx = (hi - lo) / samples;
+  let prevX = lo;
+  let prevD = fnDeriv(lo);
+  for (let i = 1; i <= samples; i++) {
+    const x = lo + dx * i;
+    const d = fnDeriv(x);
+    if (!isFinite(prevD) || !isFinite(d)) {
+      prevX = x; prevD = d;
+      continue;
+    }
+    if (prevD !== 0 && d !== 0 && Math.sign(prevD) !== Math.sign(d)) {
+      // 抛物线插值精化极值位置
+      const x0 = prevX;
+      const x1 = x;
+      const x2 = Math.min(hi, x1 + dx);
+      const f0 = fn(x0);
+      const f1 = fn(x1);
+      const f2 = fn(x2);
+      const denom = f0 - 2 * f1 + f2;
+      let peak: number;
+      if (isFinite(denom) && denom !== 0) {
+        const t = 0.5 * (f0 - f2) / denom;
+        peak = x1 + t * dx;
+      } else {
+        peak = x1;
+      }
+      if (out.length === 0 || Math.abs(peak - out[out.length - 1]) > dx * 0.6) {
+        out.push(+peak.toFixed(5));
+      }
+    }
+    prevX = x;
+    prevD = d;
+    if (out.length >= max) break;
+  }
+  return out;
+}

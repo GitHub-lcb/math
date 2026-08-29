@@ -12,7 +12,7 @@ import { CATALOG, FLAGSHIP_ID, type Stage } from "@/lib/catalog";
 import { getPreset, getPresetOrFirst, PRESETS, presetsForStage, analyticDerivative, numericDerivative, slopeAt, secantSlope as secantSlopeFn } from "@/lib/derivatives";
 import { parseAndMakeEvaluator } from "@/lib/parser";
 import { SITE_ICP, SITE_NAME, SITE_THEME_KEY, DEFAULT_THEME } from "@/lib/siteConfig";
-import { fmt } from "@/lib/math";
+import { fmt, findExtrema, findZeros } from "@/lib/math";
 
 const presetDefaults = (id: string): Record<string, number> => {
   const p = getPreset(id);
@@ -94,6 +94,41 @@ export default function Home() {
     return riemannMid(fn, Math.min(areaM, areaN), Math.max(areaM, areaN), 120);
   }, [senior, showArea, fn, areaM, areaN]);
 
+  // ---- 零点 / 极值点标注（预设解析优先，自定义数值扫描） ----
+  const annotations = useMemo(() => {
+    if (!fn) return [];
+    const pts: { type: "zero" | "extrema"; x: number; y: number }[] = [];
+    // 零点
+    const zeros = findZeros(fn, -8, 8);
+    for (const z of zeros.slice(0, 4)) {
+      const y = fn(z);
+      if (Number.isFinite(y) && Math.abs(y) < 0.5) pts.push({ type: "zero", x: z, y });
+    }
+    // 极值（预设解析式优先）
+    if (isCustom) {
+      const d = fnDerivative;
+      if (d) {
+        for (const ex of findExtrema(fn, d, -8, 8).slice(0, 3)) {
+          const y = fn(ex);
+          if (Number.isFinite(y)) pts.push({ type: "extrema", x: ex, y });
+        }
+      }
+    } else {
+      const pd = getPreset(preset.id);
+      if (pd && pd.id === "quadratic") {
+        const a = params.a ?? 1, b = params.b ?? 0;
+        if (a !== 0) {
+          const xv = -b / (2 * a);
+          pts.push({ type: "extrema", x: xv, y: fn(xv) });
+        }
+      } else if (pd && pd.id === "cubic") {
+        pts.push({ type: "extrema", x: -1, y: fn(-1) });
+        pts.push({ type: "extrema", x: 1, y: fn(1) });
+      }
+    }
+    return pts;
+  }, [fn, fnDerivative, isCustom, preset.id, params]);
+
   // ---- 实时数值 ----
   const fnValue = useMemo(() => (fn ? fn(senior ? tangentX : secantX2) : null), [fn, senior, tangentX, secantX2]);
   const slopeNow = useMemo(() => {
@@ -105,6 +140,65 @@ export default function Home() {
     const s = secantSlopeFn(fn, secantX1, secantX2);
     return Number.isFinite(s) ? s : null;
   }, [fn, senior, slopeAtPoint, tangentX, secantSlopeCb, secantX1, secantX2]);
+
+  // ---- URL 状态恢复（刷新/分享后保持实验现场） ----
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const e = qs.get("e");
+      if (e) {
+        const p = getPreset(e);
+        if (p) {
+          setPresetId(p.id);
+          setExprText(p.expr);
+          const defs = presetDefaults(p.id);
+          setParams(defs);
+          setShowDerivative(false);
+          setShowArea(false);
+          setShowTangent(true);
+        }
+      }
+      const s = qs.get("s");
+      if (s === "junior" || s === "senior") setStage(s);
+      const pj = qs.get("p");
+      if (pj) {
+        try {
+          const parsed = JSON.parse(pj) as Record<string, number>;
+          if (parsed && typeof parsed === "object") {
+            setParams((prev) => ({ ...prev, ...parsed }));
+          }
+        } catch { /* ignore */ }
+      }
+      const x = qs.get("x");
+      if (x !== null && !Number.isNaN(parseFloat(x))) setTangentX(parseFloat(x));
+      const d = qs.get("d");
+      if (d !== null) setShowDerivative(d === "1");
+      const a = qs.get("a");
+      if (a !== null) setShowArea(a === "1");
+      const r = qs.get("r");
+      if (r !== null) setResetToken((v) => v + 1);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ---- URL 状态写入（防抖 500ms，replaceState 不产生历史） ----
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const qs = new URLSearchParams();
+        qs.set("e", presetId);
+        qs.set("s", stage);
+        qs.set("p", JSON.stringify(params));
+        qs.set("x", tangentX.toFixed(2));
+        qs.set("d", showDerivative ? "1" : "0");
+        qs.set("a", showArea ? "1" : "0");
+        history.replaceState(null, "", "?" + qs.toString());
+      } catch { /* ignore */ }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [presetId, stage, params, tangentX, showDerivative, showArea]);
 
   // ---- 主题 ----
   useEffect(() => {
@@ -318,6 +412,7 @@ export default function Home() {
                 onSetSecantX={(x1, x2) => { setSecantX1(x1); setSecantX2(x2); }}
                 theme={theme}
                 demoMode={demoMode}
+                annotations={annotations}
               />
             </div>
             <div className="rightRail">
@@ -365,6 +460,19 @@ export default function Home() {
                 areaValue={areaValue}
                 areaM={areaM}
                 areaN={areaN}
+                challengeState={{
+                  presetId: preset.id,
+                  stage,
+                  fn,
+                  params,
+                  tangentX,
+                  showTangent,
+                  areaValue,
+                  areaM,
+                  areaN,
+                  slopeAt: slopeAtPoint,
+                  showArea,
+                }}
               />
             </div>
           </div>

@@ -725,6 +725,54 @@ input[type="range"]:disabled::-webkit-slider-thumb { background: var(--line); cu
 .math-tex { color: var(--ink); }
 .math-tex-block { display: block; overflow-x: auto; padding: 2px 0; }
 .katex-error { color: var(--danger); font-size: 12px; }
+/* 挑战任务 */
+.challengeList { display: flex; flex-direction: column; gap: 8px; }
+.challengeIntro { font-size: 11.5px; color: var(--muted-ink); }
+.challengeItem {
+  padding: 9px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--paper);
+  transition: border-color 0.2s;
+}
+.challengeItem.done { border-color: var(--green); background: var(--green-soft); }
+.challengeHead { display: flex; gap: 8px; align-items: flex-start; }
+.challengeBadge {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  background: var(--line-soft);
+  color: var(--muted-ink);
+  flex: none;
+}
+.challengeItem.done .challengeBadge { background: var(--green); color: #fff; }
+.challengePrompt { font-size: 12.5px; line-height: 1.5; }
+.challengeActions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 7px;
+}
+.challengeHint { font-size: 11px; color: var(--muted-ink); }
+.challengeBtn {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  transition: all 0.18s;
+}
+.challengeBtn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.challengeBtn:disabled { opacity: 0.5; cursor: default; }
+.challengeDone {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: 12.5px;
+  text-align: center;
+}
 
 /* ============ 页脚 ============ */
 .appFooter {

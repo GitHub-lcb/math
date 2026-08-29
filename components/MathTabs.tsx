@@ -5,6 +5,8 @@ import MathFormula from "./MathFormula";
 import type { Preset } from "@/lib/derivatives";
 import type { Stage } from "@/lib/catalog";
 import { fmt } from "@/lib/math";
+import { challengesFor, CHALLENGE_STORE_KEY, type ChallengeState } from "@/lib/challenges";
+import { useMemo } from "react";
 
 interface MathTabsProps {
   preset: Preset;
@@ -19,12 +21,29 @@ interface MathTabsProps {
   areaValue: number | null;
   areaM: number;
   areaN: number;
+  challengeState: ChallengeState;
 }
 
 export default function MathTabs(props: MathTabsProps) {
-  const { preset, stage, isCustom, tangentX, fnValue, slope, secantX1, secantX2, areaValue, areaM, areaN } = props;
-  const [tab, setTab] = useState<"formula" | "guide" | "warn">("formula");
+  const { preset, stage, isCustom, tangentX, fnValue, slope, secantX1, secantX2, areaValue, areaM, areaN, challengeState } = props;
+  const [tab, setTab] = useState<"formula" | "guide" | "warn" | "challenge">("formula");
   const senior = stage === "senior";
+
+  // ---- 挑战：完成集持久化 + 逐题验证 ----
+  const challenges = useMemo(() => challengesFor(preset.id), [preset.id]);
+  const [results, setResults] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(CHALLENGE_STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return {};
+  });
+  const doneCount = challenges.filter((c) => results[c.id] === true).length;
+  const commitResults = (next: Record<string, boolean>) => {
+    setResults(next);
+    try { localStorage.setItem(CHALLENGE_STORE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const [checked, setChecked] = useState<Record<string, boolean | "pending">>({});
 
   const formulaItems: { tex: string; note: string }[] = [];
   if (isCustom) {
@@ -62,6 +81,7 @@ export default function MathTabs(props: MathTabsProps) {
         <button role="tab" aria-selected={tab === "formula"} className={"tabBtn" + (tab === "formula" ? " active" : "")} onClick={() => setTab("formula")}>📐 公式推导</button>
         <button role="tab" aria-selected={tab === "guide"} className={"tabBtn" + (tab === "guide" ? " active" : "")} onClick={() => setTab("guide")}>🧭 实验指南</button>
         <button role="tab" aria-selected={tab === "warn"} className={"tabBtn" + (tab === "warn" ? " active" : "")} onClick={() => setTab("warn")}>⚠️ 易错点</button>
+        <button role="tab" aria-selected={tab === "challenge"} className={"tabBtn" + (tab === "challenge" ? " active" : "")} onClick={() => setTab("challenge")}>🎯 挑战 {doneCount > 0 ? "(" + doneCount + "/" + challenges.length + ")" : ""}</button>
       </div>
       <div className="tabsBody">
         {tab === "formula" && (
@@ -112,6 +132,44 @@ export default function MathTabs(props: MathTabsProps) {
           <ul className="warnList">
             {warnList.map((w, i) => (<li key={i}>{w}</li>))}
           </ul>
+        )}
+        {tab === "challenge" && (
+          <div className="challengeList">
+            <p className="challengeIntro">完成小目标，理解会更扎实。调参数或拖动切点后点「验证」。</p>
+            {challenges.map((c) => {
+              const done = results[c.id] === true;
+              const st = checked[c.id];
+              return (
+                <div key={c.id} className={"challengeItem" + (done ? " done" : "")}>
+                  <div className="challengeHead">
+                    <span className="challengeBadge">{done ? "✓" : st === "pending" ? "…" : st === false ? "✗" : "•"}</span>
+                    <p className="challengePrompt">{c.prompt}</p>
+                  </div>
+                  <div className="challengeActions">
+                    <span className="challengeHint">{c.hint}</span>
+                    <button
+                      className="challengeBtn"
+                      disabled={done}
+                      onClick={() => {
+                        const pass = c.check(challengeState);
+                        setChecked((s) => ({ ...s, [c.id]: pass }));
+                        if (pass) {
+                          commitResults({ ...results, [c.id]: true });
+                        } else {
+                          setChecked((s) => ({ ...s, [c.id]: false }));
+                        }
+                      }}
+                    >
+                      {done ? "已完成" : "验证"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {challenges.length > 0 && doneCount === challenges.length && (
+              <div className="challengeDone">🏆 全部完成！你对「{preset.name}」的理解已经很棒了。</div>
+            )}
+          </div>
         )}
       </div>
     </div>

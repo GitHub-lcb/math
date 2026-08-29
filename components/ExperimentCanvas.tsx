@@ -27,6 +27,7 @@ export interface CanvasProps {
   onSetSecantX: (x1: number, x2: number) => void;
   theme: "dark" | "light";
   demoMode?: "params" | "tangent" | null;
+  annotations?: { type: "zero" | "extrema"; x: number; y: number }[];
 }
 
 const INIT_VP: Viewport = { xMin: -8, xMax: 8, yMin: -5.5, yMax: 5.5 };
@@ -35,7 +36,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
   const {
     fn, fnDerivative, error, stage, showDerivative, showTangent, showArea,
     tangentX, secantX1, secantX2, areaM, areaN, slopeAtPoint, secantSlope, resetToken,
-    onSetTangentX, onSetSecantX, theme, demoMode,
+    onSetTangentX, onSetSecantX, theme, demoMode, annotations,
   } = props;
   const senior = stage === "senior";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,6 +72,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
       tangent: g("--warn", "#fbbf24"),
       area: g("--area-fill", "rgba(124,92,255,0.18)"),
       danger: g("--danger", "#f87171"),
+      warn: g("--warn", "#fbbf24"),
       white: g("--paper", "#13171c"),
       paper: g("--paper", "#13171c"),
       chipBg: g("--paper-soft", "#1a1f27"),
@@ -118,7 +120,20 @@ export default function ExperimentCanvas(props: CanvasProps) {
         ctx.stroke();
         ctx.restore();
       }
+      // 曲线辉光（暗色主题霓虹感）——仅入场完成后
+      if (theme === "dark" && growth >= 1) {
+        plt.drawGlow(d, xRange[0], xRange[1], fn, palette.accent);
+      }
       plt.drawCurve(d, fn, palette.accent, 2.6, xRange);
+      // 零点 / 极值点标注
+      if (annotations && annotations.length > 0) {
+        for (const a of annotations) {
+          const y = fn(a.x);
+          if (!Number.isFinite(y)) continue;
+          const col = a.type === "zero" ? palette.accent2 : palette.warn;
+          plt.drawMarker(d, a.x, y, a.type === "zero" ? "零点" : "极值", col, 3.6);
+        }
+      }
       if (senior && showDerivative && fnDerivative) {
         plt.drawCurve(d, fnDerivative, palette.accent2, 1.8);
         // 标注导数曲线
@@ -138,9 +153,15 @@ export default function ExperimentCanvas(props: CanvasProps) {
           const y0 = fn(x0);
           const slope = slopeAtPoint(x0);
           if (Number.isFinite(y0)) {
+            plt.drawProjection(d, x0, y0, palette.tangent);
             if (Number.isFinite(slope) && Math.abs(slope) < 1e5) {
               plt.drawLineThrough(d, x0, y0, slope, palette.tangent, 2, "");
               plt.drawMarker(d, x0, y0, "P", palette.tangent);
+              plt.drawChip(
+                d, x0, y0,
+                ["x₀ = " + fmt(x0, 2), "f(x₀) = " + fmt(y0, 3), "k = " + fmt(slope, 3)],
+                palette.tangent
+              );
             } else {
               plt.drawMarker(d, x0, y0, "斜率接近垂直", palette.tangent);
             }
@@ -164,6 +185,15 @@ export default function ExperimentCanvas(props: CanvasProps) {
       if (hover) {
         const hy = fn(hover.x);
         if (Number.isFinite(hy)) {
+          // 悬停处切线预览（淡色）
+          const hs = slopeAtPoint(hover.x);
+          if (Number.isFinite(hs) && Math.abs(hs) < 1e5 && !dragState.current?.moved) {
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            plt.drawLineThrough(d, hover.x, hy, hs, palette.tangent, 1.4, "");
+            ctx.restore();
+            plt.drawMarker(d, hover.x, hy, "", palette.tangent, 3);
+          }
           plt.drawHoverInfo(d, "(" + fmt(hover.x, 2) + ", " + fmt(hy, 2) + ")");
         }
       }
