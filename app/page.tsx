@@ -229,25 +229,35 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
-  // ---- URL 状态写入（防抖 500ms，replaceState 不产生历史） ----
+  // ---- URL 状态写入 ----
+  // ref 镜像最新状态；200ms 周期写入（高频动画（单位圆旋转）不会饿死防抖）
+  const urlStateRef = useRef({
+    presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta, isConic, conic,
+  });
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    urlStateRef.current = {
+      presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta, isConic, conic,
+    };
+  });
+  useEffect(() => {
+    const iv = window.setInterval(() => {
       try {
+        const s = urlStateRef.current;
         const qs = new URLSearchParams();
-        qs.set("e", presetId);
-        qs.set("s", stage);
-        qs.set("p", JSON.stringify(params));
-        qs.set("x", tangentX.toFixed(2));
-        qs.set("d", showDerivative ? "1" : "0");
-        qs.set("a", showArea ? "1" : "0");
-        qs.set("lab", activeId);
-        qs.set("th", ((theta * 180) / Math.PI).toFixed(1));
-        if (isConic) qs.set("ct", JSON.stringify(conic));
+        qs.set("e", s.presetId);
+        qs.set("s", s.stage);
+        qs.set("p", JSON.stringify(s.params));
+        qs.set("x", s.tangentX.toFixed(2));
+        qs.set("d", s.showDerivative ? "1" : "0");
+        qs.set("a", s.showArea ? "1" : "0");
+        qs.set("lab", s.activeId);
+        qs.set("th", ((s.theta * 180) / Math.PI).toFixed(1));
+        if (s.isConic) qs.set("ct", JSON.stringify(s.conic));
         history.replaceState(null, "", "?" + qs.toString());
       } catch { /* ignore */ }
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [presetId, stage, params, tangentX, showDerivative, showArea, activeId, theta, isConic, conic]);
+    }, 200);
+    return () => window.clearInterval(iv);
+  }, []);
 
   // ---- 主题 ----
   useEffect(() => {
@@ -270,6 +280,10 @@ export default function Home() {
 
   const applyPreset = useCallback((id: string) => {
     const p = getPreset(id) ?? getPresetOrFirst(id);
+    // 学段门控：初中模式选中「⭐ 高中进阶」预设 → 自动切回高中学段（所见即所得）
+    if (stage === "junior" && p.stage === "senior") {
+      setStage("senior");
+    }
     setPresetId(p.id);
     setExprText(p.expr);
     setParams(presetDefaults(p.id));
@@ -281,7 +295,7 @@ export default function Home() {
     setAreaM(0);
     setAreaN(1);
     setResetToken((x) => x + 1);
-  }, []);
+  }, [stage]);
 
   const changeStage = useCallback((s: Stage) => {
     setStage(s);

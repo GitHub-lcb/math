@@ -45,7 +45,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const vpRef = useRef<Viewport>({ ...INIT_VP });
-  const [, forceRender] = useState(0); // 视口变化触发重绘的辅助 state
+  const [vpTick, setVpTick] = useState(0); // 视口变化 tick：拖拽/缩放后强制重绘
   const dragState = useRef<{ startX: number; startY: number; vp: Viewport; moved: boolean } | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -84,7 +84,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
 
   useEffect(() => {
     vpRef.current = { ...INIT_VP };
-    forceRender((x) => x + 1);
+    setVpTick((x) => x + 1);
   }, [resetToken]);
 
   const draw = useCallback(() => {
@@ -299,6 +299,13 @@ export default function ExperimentCanvas(props: CanvasProps) {
     drawRef.current = draw;
   }, [draw]);
 
+  // 视口变化 tick：拖拽/缩放/复位后立即重绘（ref 变化不会触发 effect，必须显式驱动）
+  useEffect(() => {
+    if (vpTick === 0) return;
+    drawRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vpTick]);
+
   // 切线演示：demoMode === "tangent" 时推进动画切点（每帧 30fps 节流同步）
   useEffect(() => {
     if (demoMode !== "tangent") {
@@ -353,7 +360,7 @@ export default function ExperimentCanvas(props: CanvasProps) {
           yMin: d.vp.yMin + (dy / rect.height) * vh,
           yMax: d.vp.yMax + (dy / rect.height) * vh,
         };
-        forceRender((x) => x + 1);
+        setVpTick((x) => x + 1);
       }
       return;
     }
@@ -390,11 +397,11 @@ export default function ExperimentCanvas(props: CanvasProps) {
     const nw = (vp.xMax - vp.xMin) * factor;
     const nh = (vp.yMax - vp.yMin) * factor;
     vpRef.current = { xMin: cx - nw / 2, xMax: cx + nw / 2, yMin: cy - nh / 2, yMax: cy + nh / 2 };
-    forceRender((x) => x + 1);
+    setVpTick((x) => x + 1);
   };
   const resetView = () => {
     vpRef.current = { ...INIT_VP };
-    forceRender((x) => x + 1);
+    setVpTick((x) => x + 1);
   };
   const exportPng = () => {
     const cv = canvasRef.current;

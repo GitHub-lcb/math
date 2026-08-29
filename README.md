@@ -68,7 +68,8 @@ npm run dev       # http://localhost:3000
 ```bash
 npm run build     # 静态预渲染 + 严格 TS 检查
 npm start
-npx tsx smoke.ts  # 解析器/导数/数学工具 23 项断言
+npx tsx smoke.ts          # 解析器/导数/数学工具 26 项断言
+node scripts/interact-test.mjs   # 全交互回归：CDP 真实点击 38 项断言（需先启动服务器）
 ```
 
 ## 📁 项目结构

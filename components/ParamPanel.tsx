@@ -158,7 +158,18 @@ export default function ParamPanel(props: ParamPanelProps) {
           aria-label="预设函数"
           onChange={(e) => onSelectPreset(e.target.value)}
         >
-          {presets.map((p) => (<option key={p.id} value={p.id}>{p.stage === "senior" && stage === "junior" ? "⭐ " : ""}{p.name}</option>))}
+          {presets.map((p) => (<option key={p.id} value={p.id}>{p.stage === "senior" && stage === "junior" ? "⭐ " : ""}{p.name}{p.stage === "senior" && stage === "junior" ? "（高中进阶）" : ""}</option>))}
+          {stage === "junior" && (
+            <optgroup label="高中进阶（选择后自动切换到高中）">
+              {(
+                [
+                  ["exponential", "指数函数"],
+                  ["logarithmic", "对数函数"],
+                  ["damped", "阻尼振荡"],
+                ] as const
+              ).map(([id, label]) => (<option key={id} value={id}>⭐ {label}（切到高中）</option>))}
+            </optgroup>
+          )}
         </select>
       </div>
       {parseError && (
