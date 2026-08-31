@@ -67,6 +67,10 @@ body {
   line-height: 1.6;
   overflow: hidden;
 }
+/* 主题切换：颜色平滑过渡（不含画布，画布由 JS 重绘） */
+html.theme-anim *:not(canvas) {
+  transition: background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease;
+}
 button { font-family: inherit; cursor: pointer; color: inherit; background: none; border: none; }
 input, select { font-family: inherit; color: inherit; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -137,6 +141,8 @@ button:focus-visible { outline-offset: 1px; }
   transition: background 0.15s, color 0.15s;
 }
 .iconBtn:hover { background: var(--line-soft); color: var(--ink); }
+.helpBtn { font-weight: 700; font-size: 14px; }
+.helpBtn.active { background: var(--accent-soft); color: var(--accent); }
 .menuBtn { display: none; }
 
 /* ============ 整体布局 ============ */
@@ -673,6 +679,91 @@ input[type="range"]:disabled::-webkit-slider-thumb { background: var(--line); cu
 .valueCard.warn b { color: var(--warn); }
 .valueCard.warn { border-top: 2px solid var(--warn); }
 .trigWrap { background: var(--paper); }
+/* 错误边界 */
+.boundaryFallback {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px;
+  min-height: 420px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ink);
+}
+.boundaryIcon { font-size: 34px; }
+.boundaryFallback h2 { font-size: 16px; font-weight: 700; }
+.boundaryMsg { font-size: 12px; color: var(--muted-ink); max-width: 420px; word-break: break-all; }
+.boundaryActions { display: flex; gap: 8px; margin-top: 6px; }
+/* 实验切换过渡 */
+.experimentArea { outline: none; }
+.workspaceHeader, .experimentArea {
+  animation: labSwitch 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+@keyframes labSwitch {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* 侧边栏关于 */
+.sidebarAbout {
+  padding: 4px 16px 6px;
+}
+.aboutBtn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  color: var(--muted-ink);
+  border-radius: 8px;
+  text-align: left;
+  transition: all 0.15s;
+}
+.aboutBtn:hover { background: var(--line-soft); color: var(--ink); }
+.aboutMark { color: var(--accent); font-size: 13px; }
+.aboutVersion { margin-left: auto; font-size: 10px; color: var(--muted-ink); background: var(--line-soft); border-radius: 999px; padding: 0 7px; line-height: 16px; }
+.aboutBody p { font-size: 12.5px; line-height: 1.7; }
+.aboutList { margin: 10px 0 6px; padding-left: 2px; list-style: none; display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; }
+.aboutActions { margin: 12px 0 6px; }
+.aboutMeta { margin-top: 10px; font-size: 11px; color: var(--muted-ink); border-top: 1px dashed var(--line-soft); padding-top: 10px; }
+/* 帮助弹层 */
+.helpOverlay {
+  position: fixed; inset: 0;
+  z-index: 900;
+  display: grid; place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  animation: guideIn 0.2s ease;
+  padding: 20px;
+}
+.helpPanel {
+  width: min(440px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper-card);
+  box-shadow: var(--shadow);
+}
+.helpHead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.helpHead h2 { font-size: 15px; font-weight: 700; }
+.helpBody { padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.helpRow { display: flex; align-items: center; gap: 12px; }
+.helpKey {
+  flex: none;
+  min-width: 56px;
+  text-align: center;
+  font-size: 11.5px;
+  font-family: ui-monospace, Consolas, monospace;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--accent);
+  box-shadow: 0 1px 0 var(--line);
+}
+.helpDesc { font-size: 12.5px; }
+.helpNote { padding: 0 16px 14px; font-size: 11px; color: var(--muted-ink); }
 /* 圆锥曲线实验 */
 .conicTypeSwitch {
   display: inline-flex;

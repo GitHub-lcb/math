@@ -8,6 +8,9 @@ import ExperimentCanvas from "@/components/ExperimentCanvas";
 import MathTabs from "@/components/MathTabs";
 import AnnotationBoard from "@/components/AnnotationBoard";
 import GuideToast from "@/components/GuideToast";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import HelpPanel from "@/components/HelpPanel";
+import AboutPanel from "@/components/AboutPanel";
 import TrigCanvas from "@/components/TrigCanvas";
 import TrigPanel from "@/components/TrigPanel";
 import TrigTabs from "@/components/TrigTabs";
@@ -32,6 +35,8 @@ export default function Home() {
   // ---- 持久化与外观 ----
   const [theme, setTheme] = useState<"dark" | "light">(DEFAULT_THEME);
   const [annotationOpen, setAnnotationOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ---- 实验切换 ----
@@ -259,6 +264,18 @@ export default function Home() {
     return () => window.clearInterval(iv);
   }, []);
 
+  // ---- 浏览器标题随实验同步 + 正文聚焦管理 ----
+  const labTitle = isTrig
+    ? "单位圆与三角函数线 — 象限先生的数学实验室"
+    : isConic
+      ? "圆锥曲线画板 — 象限先生的数学实验室"
+      : senior
+        ? "函数图像与导数探究 — 象限先生的数学实验室"
+        : "函数图像与变化规律 — 象限先生的数学实验室";
+  useEffect(() => {
+    document.title = labTitle;
+  }, [labTitle]);
+
   // ---- 主题 ----
   useEffect(() => {
     const el = document.documentElement;
@@ -313,7 +330,15 @@ export default function Home() {
   const onSelectExperiment = useCallback((id: string) => {
     setActiveId(id);
     setSidebarOpen(false);
+    // 切换后
   }, []);
+  // 实验切换后：滚动工作区顶部并聚焦（无障碍与体验）
+  useEffect(() => {
+    const area = document.querySelector(".experimentArea");
+    if (area) {
+      (area as HTMLElement).focus({ preventScroll: true });
+    }
+  }, [activeId]);
 
   // 单位圆自动旋转（rAF，≈12s 一圈）
   useEffect(() => {
@@ -374,10 +399,11 @@ export default function Home() {
       if (e.key === "r" || e.key === "R") { resetExperiment(); return; }
       if (e.key === "d" || e.key === "D") { if (demoMode) stopDemo(); else startDemo("params"); return; }
       if (e.key === "t" || e.key === "T") { if (demoMode) stopDemo(); else startDemo("tangent"); }
+      if (e.key === "?") { setHelpOpen((v) => !v); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [presets, preset.id, applyPreset, resetExperiment, startDemo, demoMode]);
+  }, [presets, preset.id, applyPreset, resetExperiment, startDemo, demoMode, helpOpen]);
 
   // ---- 演示循环：'params' 参数演示 / 'tangent' 切线巡航 ----
 
@@ -438,10 +464,18 @@ export default function Home() {
     <>
       <TopBar
         theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        onToggleTheme={() => {
+          document.documentElement.classList.add("theme-anim");
+          window.setTimeout(() => {
+            document.documentElement.classList.remove("theme-anim");
+          }, 500);
+          setTheme((t) => (t === "dark" ? "light" : "dark"));
+        }}
         onOpenAnnotation={() => setAnnotationOpen(true)}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        helpOpen={helpOpen}
+        onToggleHelp={() => setHelpOpen((v) => !v)}
       />
       <div className="appShell">
         {sidebarOpen && <div className="sidebarBackdrop" onClick={() => setSidebarOpen(false)} />}
@@ -452,10 +486,11 @@ export default function Home() {
             activeId={activeId}
             onSelect={onSelectExperiment}
             onExpand={() => setSidebarOpen(true)}
+            onOpenAbout={() => setAboutOpen(true)}
           />
         </div>
         <main className="mainColumn">
-          <div className="workspaceHeader">
+          <div className="workspaceHeader" key={"h-" + activeId}>
             <span
               className="modDot"
               style={currentModule?.hue ? ({ "--mod-hue": currentModule.hue } as React.CSSProperties) : undefined}
@@ -465,7 +500,8 @@ export default function Home() {
             <span className="stageChip">{isTrig || isConic ? "高中实验" : senior ? "高中实验" : "初中实验"}</span>
             <span className="statusHint">{isTrig ? "实时仿真 · 点击或拖动 · 三角联动" : isConic ? "椭圆 · 双曲线 · 抛物线 · 焦点与准线" : "实时仿真 · 可调参数 · 公式推导"}</span>
           </div>
-          <div className="experimentArea">
+          <ErrorBoundary>
+          <div className="experimentArea" key={"area-" + activeId} tabIndex={-1} onKeyDown={() => { /* 容器聚焦后键盘快捷键仍由 window 层处理 */ }}>
             {isTrig ? (
               <>
             <div className="canvasPane">
@@ -594,6 +630,7 @@ export default function Home() {
               </>
             )}
           </div>
+          </ErrorBoundary>
           <footer className="appFooter">
             <span aria-hidden="true" />
             <span>{senior ? "函数图像与导数探究" : "函数图像与变化规律"}</span>
@@ -604,6 +641,12 @@ export default function Home() {
         </main>
       </div>
       <AnnotationBoard open={annotationOpen} onClose={() => setAnnotationOpen(false)} />
+      <HelpPanel
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        lab={isTrig ? "trig" : isConic ? "conic" : "function"}
+      />
+      <AboutPanel open={aboutOpen} onClose={() => setAboutOpen(false)} onOpenHelp={() => setHelpOpen(true)} />
     </>
   );
 }

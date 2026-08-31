@@ -8,9 +8,11 @@ interface TopBarProps {
   onOpenAnnotation: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  helpOpen: boolean;
+  onToggleHelp: () => void;
 }
 
-export default function TopBar({ theme, onToggleTheme, onOpenAnnotation, sidebarOpen, onToggleSidebar }: TopBarProps) {
+export default function TopBar({ theme, onToggleTheme, onOpenAnnotation, sidebarOpen, onToggleSidebar, helpOpen, onToggleHelp }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="brandGroup">
@@ -31,6 +33,14 @@ export default function TopBar({ theme, onToggleTheme, onOpenAnnotation, sidebar
         </button>
         <button className="iconBtn" onClick={onOpenAnnotation} aria-label="打开手写板" title="手写板：整屏圈画讲解（不动页面内容）">
           <IconPen size={17} />
+        </button>
+        <button
+          className={"iconBtn helpBtn" + (helpOpen ? " active" : "")}
+          onClick={onToggleHelp}
+          aria-label="操作帮助"
+          title="操作帮助 / 快捷键（?）"
+        >
+          ?
         </button>
       </div>
     </header>

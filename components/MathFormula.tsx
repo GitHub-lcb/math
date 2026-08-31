@@ -1,8 +1,8 @@
 // KaTeX 公式渲染封装（错误容错）
 import katex from "katex";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
-export default function MathFormula({ tex, block = false }: { tex: string; block?: boolean }) {
+function MathFormula({ tex, block = false }: { tex: string; block?: boolean }) {
   const html = useMemo(() => {
     try {
       return katex.renderToString(tex, {
@@ -22,3 +22,5 @@ export default function MathFormula({ tex, block = false }: { tex: string; block
     />
   );
 }
+
+export default memo(MathFormula);

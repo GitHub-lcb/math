@@ -206,6 +206,22 @@ export default function ExperimentCanvas(props: CanvasProps) {
       if (hover) {
         const hy = fn(hover.x);
         if (Number.isFinite(hy)) {
+          // 悬停十字参考线（淡色虚线，x/y 投影）
+          ctx.save();
+          ctx.strokeStyle = palette.label;
+          ctx.globalAlpha = 0.4;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 5]);
+          const [hsx, hsy] = plt.toScreen(d, hover.x, hy);
+          ctx.beginPath();
+          ctx.moveTo(hsx, 0);
+          ctx.lineTo(hsx, size.h);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, hsy);
+          ctx.lineTo(size.w, hsy);
+          ctx.stroke();
+          ctx.restore();
           // 悬停处切线预览（淡色）
           const hs = slopeAtPoint(hover.x);
           if (Number.isFinite(hs) && Math.abs(hs) < 1e5 && !dragState.current?.moved) {

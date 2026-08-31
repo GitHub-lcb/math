@@ -195,12 +195,17 @@ try {
   await evalJs("window.__T.click(" + JSON.stringify(".topbarActions button:first-child") + ")");
   await sleepInPage(200);
   assert("A4 主题切回暗色", (await evalJs("window.__T.theme()")) === "dark");
-  await evalJs("window.__T.click(" + JSON.stringify(".topbarActions button:last-child") + ")");
+  await evalJs("window.__T.click(" + JSON.stringify("button[aria-label=打开手写板]") + ")");
   await sleepInPage(200);
   assert("A5 手写板打开", await evalJs("window.__T.exists(" + JSON.stringify(".annotationOverlay") + ")"));
   await evalJs("document.dispatchEvent(new KeyboardEvent(" + JSON.stringify("keydown") + ", { key: " + JSON.stringify("Escape") + ", bubbles: true }))");
   await sleepInPage(200);
   assert("A6 手写板 Esc 关闭", !(await evalJs("window.__T.exists(" + JSON.stringify(".annotationOverlay") + ")")));
+  await evalJs("window.__T.click(" + JSON.stringify("button[aria-label=操作帮助]") + ")");
+  await sleepInPage(250);
+  assert("A7 帮助面板打开", await evalJs("window.__T.exists(" + JSON.stringify(".helpPanel") + ")"));
+  await evalJs("document.dispatchEvent(new KeyboardEvent(" + JSON.stringify("keydown") + ", { key: " + JSON.stringify("Escape") + ", bubbles: true }))");
+  await sleepInPage(200);
 
   console.log("== B. 侧边栏 ==");
   assert("B1 模块章节数>5", (await evalJs("window.__T.count(" + JSON.stringify(".chapterMain") + ")")) > 5);
@@ -235,6 +240,11 @@ try {
   await evalJs("window.__T.click(" + JSON.stringify(".sidebarExpandBtn") + ")");
   await sleepInPage(250);
   assert("B9 侧栏展开恢复", !(await evalJs("window.__T.exists(" + JSON.stringify(".sidebarCollapsed") + ")")));
+  await evalJs("window.__T.click(" + JSON.stringify(".aboutBtn") + ")");
+  await sleepInPage(250);
+  assert("B10 关于面板打开", await evalJs("window.__T.exists(" + JSON.stringify(".aboutPanel") + ")"));
+  await evalJs("document.dispatchEvent(new KeyboardEvent(" + JSON.stringify("keydown") + ", { key: " + JSON.stringify("Escape") + ", bubbles: true }))");
+  await sleepInPage(200);
 
   console.log("== C. 函数实验交互 ==");
   await openApp("http://localhost:3000/?lab=function-and-derivative");

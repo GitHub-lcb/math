@@ -10,9 +10,10 @@ interface CatalogSidebarProps {
   activeId: string;
   onSelect: (id: string) => void;
   onExpand: () => void; // 桌面端收起时的展开回调
+  onOpenAbout: () => void;
 }
 
-export default function CatalogSidebar({ stage, onStageChange, activeId, onSelect, onExpand }: CatalogSidebarProps) {
+export default function CatalogSidebar({ stage, onStageChange, activeId, onSelect, onExpand, onOpenAbout }: CatalogSidebarProps) {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(false);
 
@@ -148,6 +149,12 @@ export default function CatalogSidebar({ stage, onStageChange, activeId, onSelec
           </div>
         )}
 
+        <div className="sidebarAbout">
+          <button onClick={onOpenAbout} className="aboutBtn" aria-label="关于本实验室">
+            <span className="aboutMark">◈</span> 关于「象限先生的数学实验室」
+            <span className="aboutVersion">v0.3</span>
+          </button>
+        </div>
         <div className="chapterList" data-sidebar-scroll-area="true">
           {filtered.length === 0 && (
             <p className="noResult">未找到匹配实验，换个关键词试试～</p>
